@@ -1,0 +1,31 @@
+name: Validate AIDATA
+
+on:
+  push:
+    paths:
+      - "data/**"
+      - "schemas/**"
+      - "scripts/validate_dataset.py"
+      - ".github/workflows/validate-data.yml"
+  pull_request:
+    paths:
+      - "data/**"
+      - "schemas/**"
+      - "scripts/validate_dataset.py"
+      - ".github/workflows/validate-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-jsonl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate seed datasets
+        run: |
+          python scripts/validate_dataset.py data/seeds/*.jsonl
