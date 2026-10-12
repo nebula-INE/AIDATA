@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nebula-INE/AIDATA/schemas/example.schema.json",
+  "title": "AIDATA Example",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "task_type", "prompt", "target", "language", "split", "provenance", "license", "quality"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "id": {"type": "string", "minLength": 3, "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "task_type": {"type": "string", "enum": ["reasoning", "math", "coding", "debugging", "testing", "code_review", "refactoring", "planning", "knowledge_qa"]},
+    "prompt": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1},
+    "language": {"type": "string", "minLength": 2},
+    "split": {"type": "string", "enum": ["train", "validation", "eval"]},
+    "provenance": {"type": "object", "required": ["kind", "source"], "additionalProperties": false, "properties": {
+      "kind": {"type": "string", "enum": ["synthetic", "human_authored", "licensed_public", "internal_test"]},
+      "source": {"type": "string", "minLength": 1},
+      "source_url": {"type": "string"},
+      "retrieved_at": {"type": "string", "format": "date"}
+    }},
+    "license": {"type": "string", "minLength": 1},
+    "quality": {"type": "object", "required": ["status"], "additionalProperties": false, "properties": {
+      "status": {"type": "string", "enum": ["draft", "reviewed", "verified"]},
+      "reviewer": {"type": "string"},
+      "verification": {"type": "string"},
+      "notes": {"type": "string"}
+    }},
+    "tests": {"type": "array", "items": {"type": "string"}},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  }
+}
