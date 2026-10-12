@@ -50,7 +50,7 @@ def validate_record(record: object, line_number: int) -> list[str]:
         errors.append(f"{prefix}: schema_version must be '1.0'")
 
     identifier = record.get("id")
-    if not isinstance(identifier, str) or not ID_PATTERN.fullmatch(identifier):
+    if not isinstance(identifier, str) or len(identifier) < 3 or not ID_PATTERN.fullmatch(identifier):
         errors.append(f"{prefix}: id must be a stable lowercase identifier")
 
     for key in ("prompt", "target", "language", "license"):
