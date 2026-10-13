@@ -32,9 +32,11 @@ Use JSONL: one UTF-8 JSON object per line. Each record should include a stable `
 6. For code examples, include tests or explicit expected behavior where practical.
 7. Store concise solution rationales/checks, not unverifiable claims about hidden internal reasoning.
 
-## Japanese language understanding
+## Language understanding and reasoning
 
-See [`docs/japanese-language-data.md`](docs/japanese-language-data.md) for Japanese data coverage and limitations, and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md) for the human-review rubric, answer-cardinality categories, multi-turn and Axral technical coverage, and fixed evaluation protocol.
+See [`docs/language-understanding-foundation.md`](docs/language-understanding-foundation.md) for the balanced multilingual language-understanding and reasoning strategy. Japanese is a priority, but the dataset is not Japanese-only: it should strengthen shared semantic skills across languages, then connect those skills to reasoning, coding, and tool use.
+
+For Japanese-specific coverage, see [`docs/japanese-language-data.md`](docs/japanese-language-data.md) and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md) for review criteria, answer-cardinality categories, multi-turn dialogue, Axral technical coverage, and the fixed evaluation protocol.
 
 ## Local checks
 
