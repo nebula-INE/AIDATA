@@ -56,11 +56,11 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
          "quality_status": (r.get("quality") or {}).get("status", "missing")}
         for r in records if (r.get("quality") or {}).get("status") == "draft"
     ]
-    eval_records = [r for r in records if r.get("split") == "eval"]
-    overlap = sorted(
+    eval_ids = {r.get("id") for r in records if r.get("split") == "eval"}
+    overlap = sorted({
         str(r.get("id", "")) for r in records
-        if r.get("split") in {"train", "validation"} and r.get("id") in {e.get("id") for e in eval_records}
-    )
+        if r.get("split") in {"train", "validation"} and r.get("id") in eval_ids
+    })
     return {
         "record_count": count,
         "language_counts": dict(sorted(by_language.items())),
