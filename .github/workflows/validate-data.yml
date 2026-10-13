@@ -32,6 +32,6 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate seed datasets
         run: |
-          python scripts/validate_dataset.py data/seeds/*.jsonl
+          python scripts/validate_dataset.py data/seeds/*.jsonl data/eval/*.jsonl
       - name: Audit duplicate prompts
         run: python scripts/audit_dataset.py data/seeds/*.jsonl
