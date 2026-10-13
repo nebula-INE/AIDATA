@@ -92,7 +92,7 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
     columns = [
         "id", "language", "task_type", "tags", "model", "model_version",
         "prompt_template_version", "decoding_settings", "run_date", "reviewer",
-        "meaning_reference", "prediction", *SCORE_COLUMNS, "notes",
+        "prompt", "meaning_reference", "prediction", *SCORE_COLUMNS, "notes",
     ]
     with Path(output_path).open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
@@ -110,6 +110,7 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
                 "decoding_settings": json.dumps(pred.get("decoding_settings", {}), ensure_ascii=False, sort_keys=True),
                 "run_date": pred.get("run_date", ""),
                 "reviewer": "",
+                "prompt": item.get("prompt", ""),
                 "meaning_reference": item.get("target", ""),
                 "prediction": pred.get("prediction", ""),
                 **{column: "" for column in SCORE_COLUMNS},
@@ -189,7 +190,14 @@ def summarize(input_path: str, output_path: str | None) -> int:
     by_task: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_tag: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in parsed:
-        by_model[row.get("model") or "(unspecified)"].append(row)
+        model_label = row.get("model") or "(unspecified)"
+        model_version = row.get("model_version", "").strip()
+        run_date = row.get("run_date", "").strip()
+        if model_version:
+            model_label += f" ({model_version})"
+        if run_date:
+            model_label += f" @ {run_date}"
+        by_model[model_label].append(row)
         by_language[row.get("language") or "(unspecified)"].append(row)
         by_task[row.get("task_type") or "(unspecified)"].append(row)
         for tag in filter(None, row.get("tags", "").split("|")):
