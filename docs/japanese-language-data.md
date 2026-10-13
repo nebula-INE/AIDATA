@@ -10,6 +10,7 @@ The dataset is synthetic and is intended as a curation and evaluation starting p
 
 - `data/seeds/japanese_language_understanding.jsonl`: initial 36 Japanese examples, train split.
 - `data/seeds/japanese_language_understanding_expansion.jsonl`: additional 40 Japanese examples, train split.
+- `data/seeds/japanese_multi_turn_dialogue.jsonl`: 20 multi-turn examples covering references to prior turns, omitted context, constraints, typos/log-like technical statements, and uncertainty, train split.
 - `data/eval/japanese_language_understanding_eval.jsonl`: 20 held-out examples, eval split.
 
 Do not train on `data/eval/` or use its answer targets for prompt tuning. The CI validator checks both seed and evaluation JSONL files for schema consistency; duplicate auditing currently runs on seeds.
@@ -24,7 +25,9 @@ Before promoting a record from `draft`:
 4. **Japanese naturalness:** wording is idiomatic for the intended register and audience.
 5. **Answer boundaries:** quoted claims, reported speech, and uncertain statements are not upgraded into verified facts.
 6. **Uniqueness:** the item tests a meaningful capability not already covered by a near-duplicate.
-7. **Independent review:** a reviewer checks the prompt and target; automated structural validation alone is insufficient.
+7. **Answerability class:** label the item in the review notes as (a) single-answer with explicit criteria, (b) multiple valid answers, or (c) underspecified and requiring clarification. Do not force one exact string when several answers satisfy the intent.
+8. **Clarification quality:** when context is missing, check whether the target asks for the minimum information needed rather than guessing or asking irrelevant questions.
+9. **Independent review:** a reviewer checks the prompt and target; automated structural validation alone is insufficient.
 
 ## Evaluation protocol
 
@@ -43,6 +46,6 @@ Keep the model version, prompt template, decoding settings, evaluation date, rev
 
 - These examples are synthetic and may contain author bias or incomplete coverage.
 - The current held-out set is small and not statistically representative.
-- The `tests` field contains review criteria, not executable unit tests.
+- The `tests` field contains review criteria, not executable unit tests. Multi-turn records are also synthetic and have not been human-reviewed; adding them does not imply a completed human review.
 - Japanese language understanding also needs natural conversation data, dialect/register variation, long-context references, speech/transcription noise, and real task examples with appropriate permissions.
 - No claim about trained-model performance should be made from record counts or schema validation alone.
