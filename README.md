@@ -15,7 +15,7 @@ AIDATA is the dataset and evaluation foundation for Axral AI projects, focused o
 - `schemas/`: versioned dataset record contracts.
 - `data/seeds/`: small, hand-authored starter examples; not a substitute for a large curated corpus.
 - `data/eval/`: held-out evaluation examples; never mix into training.
-- `scripts/`: offline dataset validation, duplicate audit, and language/task coverage reporting.
+- `scripts/`: offline dataset validation, duplicate audit, language/task coverage reporting, and fixed evaluation scoring.
 - `docs/`: curation, safety, provenance, and evaluation guidance.
 
 ## Record format
@@ -49,7 +49,7 @@ python scripts/audit_dataset.py data/seeds/*.jsonl
 python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
 ```
 
-The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
+The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
 
 ## Starter status
 
