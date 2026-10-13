@@ -4,4 +4,4 @@ Keep evaluation prompts and target answers out of all training files. Add exampl
 
 Do not report a model as improved from this starter set alone. Track dataset version, model/checkpoint, decoding settings, pass rate, failure categories, and confidence intervals where sample size permits. Keep a private or access-controlled test subset for contamination-resistant checks.
 
-No benchmark items are included yet. This directory intentionally contains policy only until suitable, licensed, reviewed evaluation tasks are available.
+A small synthetic Japanese pilot currently exists at `japanese_language_understanding_eval.jsonl`. Its answer keys remain drafts and must be independently reviewed before benchmark claims. See [`docs/fixed-evaluation-workflow.md`](../../docs/fixed-evaluation-workflow.md) for the scoring worksheet and report process. The pilot is not statistically representative and should not be used to claim broad model improvement.
