@@ -36,7 +36,7 @@ Use JSONL: one UTF-8 JSON object per line. Each record should include a stable `
 
 See [`docs/language-understanding-foundation.md`](docs/language-understanding-foundation.md) for the balanced multilingual language-understanding and reasoning strategy. Japanese is a priority, but the dataset is not Japanese-only: it should strengthen shared semantic skills across languages, then connect those skills to reasoning, coding, and tool use.
 
-For Japanese-specific coverage, see [`docs/japanese-language-data.md`](docs/japanese-language-data.md) and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md) for review criteria, answer-cardinality categories, multi-turn dialogue, Axral technical coverage, and the fixed evaluation protocol.
+For Japanese-specific coverage, see [`docs/japanese-language-data.md`](docs/japanese-language-data.md) and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md). The contextual vocabulary and lexical-semantics expansion is in [`data/seeds/vocabulary_semantics_expansion_2026_10.jsonl`](data/seeds/vocabulary_semantics_expansion_2026_10.jsonl); it covers near-synonyms, polysemy, idioms, register, Japanese particles/scope, requirement strength, epistemic language, and multilingual technical terms. These examples remain drafts until reviewed.
 
 ## Local checks
 
