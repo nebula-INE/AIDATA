@@ -32,6 +32,10 @@ Use JSONL: one UTF-8 JSON object per line. Each record should include a stable `
 6. For code examples, include tests or explicit expected behavior where practical.
 7. Store concise solution rationales/checks, not unverifiable claims about hidden internal reasoning.
 
+## Japanese language understanding
+
+See [`docs/japanese-language-data.md`](docs/japanese-language-data.md) for Japanese data coverage, review criteria, held-out evaluation policy, and known limitations.
+
 ## Local checks
 
 Run the structural validator and advisory duplicate audit before proposing dataset changes:
