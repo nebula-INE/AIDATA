@@ -25,6 +25,19 @@ Grow several complementary tracks instead of maximizing Japanese-only volume:
 
 Use Japanese naturally where it is the source language or the task requires it; use English and mixed-language records where they add coverage. Prefer semantically diverse examples over superficial paraphrase counts. Do not assume a single fixed language ratio is optimal: track per-language and per-capability performance, then adjust based on measured gaps.
 
+## Vocabulary and lexical semantics
+
+Vocabulary growth should teach usage, not just word-to-definition pairs. Cover:
+
+- near-synonyms and contrastive meaning (e.g. 暫定対応 / 恒久対応; mitigate / eliminate);
+- polysemy, idioms, register, pragmatic implication, and workplace colloquialisms;
+- Japanese particles, negation scope, quantifiers, reference words, and grammatical relations;
+- requirement strength and epistemic status (must / should / may; assumption / inference / verification);
+- technical vocabulary across software, operations, APIs, performance, and reliability;
+- English and mixed-language technical communication alongside Japanese.
+
+For each entry, explain meaning in context, contrast likely confusions, and note where meanings depend on domain conventions. Keep candidates as `draft` until reviewed by a competent reviewer. Expand coverage by semantic categories and measured gaps rather than adding many shallow synonyms.
+
 ## Record design
 
 Each example should specify, where applicable:
@@ -64,7 +77,7 @@ For difficult examples, use adversarial review: try to construct a reasonable co
 ## Immediate priorities
 
 1. Keep CI green and fix duplicate IDs or split leakage before adding more volume.
-2. Expand balanced language-understanding examples across Japanese, English, and mixed technical conversation.
+2. Expand balanced language-understanding examples across Japanese, English, and mixed technical conversation. Include contextual vocabulary, near-synonym contrasts, polysemy, register, idioms, particles/scope, modal strength, and cross-lingual technical terms; avoid treating isolated dictionary glosses as sufficient.
 3. Strengthen reasoning and coding records with verifiable expected behavior and tests.
 4. Audit the held-out set for unique answer keys, alternative acceptable answers, and ambiguity.
 5. Build a small repeatable evaluation report by capability and language before scaling to much larger volumes.
