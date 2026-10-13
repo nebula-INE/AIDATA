@@ -16,9 +16,9 @@ class EvaluationHarnessTests(unittest.TestCase):
             output = root / "review.csv"
             evaluation.write_text(
                 json.dumps({"id": "eval.one", "language": "ja", "task_type": "reasoning",
-                            "target": "answer", "tags": ["negation"]}) + "\n" +
+                            "prompt": "prompt", "target": "answer", "tags": ["negation"]}) + "\n" +
                 json.dumps({"id": "eval.two", "language": "en", "task_type": "coding",
-                            "target": "second", "tags": ["coding"]}) + "\n",
+                            "prompt": "second prompt", "target": "second", "tags": ["coding"]}) + "\n",
                 encoding="utf-8",
             )
             predictions.write_text(
@@ -31,6 +31,7 @@ class EvaluationHarnessTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 2)
             self.assertEqual(rows[0]["prediction"], "model answer")
+            self.assertEqual(rows[0]["prompt"], "prompt")
             self.assertEqual(rows[1]["notes"], "MISSING PREDICTION")
             self.assertEqual(rows[0]["score_meaning"], "")
 
