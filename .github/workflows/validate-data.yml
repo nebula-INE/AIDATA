@@ -9,7 +9,6 @@ on:
       - "scripts/audit_dataset.py"
       - "scripts/report_dataset_coverage.py"
       - "scripts/evaluate_responses.py"
-      - "scripts/evaluate_responses.py"
       - "tests/**"
       - "docs/**"
       - ".github/workflows/validate-data.yml"
@@ -20,6 +19,7 @@ on:
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
       - "scripts/report_dataset_coverage.py"
+      - "scripts/evaluate_responses.py"
       - "tests/**"
       - ".github/workflows/validate-data.yml"
   workflow_dispatch:
