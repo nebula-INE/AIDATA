@@ -15,7 +15,7 @@ AIDATA is the dataset and evaluation foundation for Axral AI projects, focused o
 - `schemas/`: versioned dataset record contracts.
 - `data/seeds/`: small, hand-authored starter examples; not a substitute for a large curated corpus.
 - `data/eval/`: held-out evaluation examples; never mix into training.
-- `scripts/`: offline dataset validation utilities.
+- `scripts/`: offline dataset validation and duplicate-audit utilities.
 - `docs/`: curation, safety, provenance, and evaluation guidance.
 
 ## Record format
@@ -31,6 +31,18 @@ Use JSONL: one UTF-8 JSON object per line. Each record should include a stable `
 5. Do not train on secrets, credentials, private user data, or harmful code payloads.
 6. For code examples, include tests or explicit expected behavior where practical.
 7. Store concise solution rationales/checks, not unverifiable claims about hidden internal reasoning.
+
+## Local checks
+
+Run the structural validator and advisory duplicate audit before proposing dataset changes:
+
+```bash
+python -m unittest discover -s tests -v
+python scripts/validate_dataset.py data/seeds/*.jsonl
+python scripts/audit_dataset.py data/seeds/*.jsonl
+```
+
+The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
 
 ## Starter status
 
