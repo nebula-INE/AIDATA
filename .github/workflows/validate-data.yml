@@ -6,6 +6,8 @@ on:
       - "data/**"
       - "schemas/**"
       - "scripts/validate_dataset.py"
+      - "scripts/audit_dataset.py"
+      - "tests/**"
       - ".github/workflows/validate-data.yml"
   pull_request:
     paths:
@@ -31,3 +33,5 @@ jobs:
       - name: Validate seed datasets
         run: |
           python scripts/validate_dataset.py data/seeds/*.jsonl
+      - name: Audit duplicate prompts
+        run: python scripts/audit_dataset.py data/seeds/*.jsonl
