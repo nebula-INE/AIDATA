@@ -8,6 +8,7 @@ on:
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
       - "scripts/report_dataset_coverage.py"
+      - "scripts/review_dataset.py"
       - "scripts/evaluate_responses.py"
       - "tests/**"
       - "docs/**"
@@ -19,6 +20,7 @@ on:
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
       - "scripts/report_dataset_coverage.py"
+      - "scripts/review_dataset.py"
       - "scripts/evaluate_responses.py"
       - "tests/**"
       - ".github/workflows/validate-data.yml"
@@ -43,3 +45,5 @@ jobs:
         run: python scripts/audit_dataset.py data/seeds/*.jsonl
       - name: Report dataset coverage and check split ID leakage
         run: python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
+      - name: Check review workflow CLI
+        run: python scripts/review_dataset.py --help
