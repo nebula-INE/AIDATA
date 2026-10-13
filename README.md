@@ -34,7 +34,7 @@ Use JSONL: one UTF-8 JSON object per line. Each record should include a stable `
 
 ## Japanese language understanding
 
-See [`docs/japanese-language-data.md`](docs/japanese-language-data.md) for Japanese data coverage, review criteria, held-out evaluation policy, and known limitations.
+See [`docs/japanese-language-data.md`](docs/japanese-language-data.md) for Japanese data coverage and limitations, and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md) for the human-review rubric, answer-cardinality categories, multi-turn and Axral technical coverage, and fixed evaluation protocol.
 
 ## Local checks
 
