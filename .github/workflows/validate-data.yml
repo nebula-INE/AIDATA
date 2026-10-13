@@ -7,13 +7,18 @@ on:
       - "schemas/**"
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
+      - "scripts/report_dataset_coverage.py"
       - "tests/**"
+      - "docs/**"
       - ".github/workflows/validate-data.yml"
   pull_request:
     paths:
       - "data/**"
       - "schemas/**"
       - "scripts/validate_dataset.py"
+      - "scripts/audit_dataset.py"
+      - "scripts/report_dataset_coverage.py"
+      - "tests/**"
       - ".github/workflows/validate-data.yml"
   workflow_dispatch:
 
@@ -28,10 +33,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Test dataset validator
+      - name: Test dataset tools
         run: python -m unittest discover -s tests -v
       - name: Validate training and evaluation datasets
-        run: |
-          python scripts/validate_dataset.py data/seeds/*.jsonl data/eval/*.jsonl
+        run: python scripts/validate_dataset.py data/seeds/*.jsonl data/eval/*.jsonl
       - name: Audit duplicate prompts
         run: python scripts/audit_dataset.py data/seeds/*.jsonl
+      - name: Report dataset coverage and check split ID leakage
+        run: python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
