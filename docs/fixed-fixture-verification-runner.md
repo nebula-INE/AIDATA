@@ -37,6 +37,12 @@ The review CSV is optional; if omitted, records without a matching completed
 review are placed at the top. Held-out `split: eval` records are excluded by
 default so they are not mixed into the routine training-data review queue. To
 review evaluation records intentionally, pass `--include-eval` explicitly.
+
+The separate full human-review worksheet exporter also excludes held-out eval
+records by default. Use `python scripts/review_dataset.py export data/seeds/*.jsonl
+--output artifacts/review.csv`; to export evaluation records intentionally, add
+`--include-eval`. Validate all input records (including IDs) before filtering,
+but keep the routine review worksheet limited to non-eval splits.
 Priority levels are workflow heuristics:
 
 - `P0`: review missing or requests revision/retirement, verification failed,
