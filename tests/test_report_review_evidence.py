@@ -96,6 +96,17 @@ class ReviewEvidenceReportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate dataset id"):
                 load_dataset_records([dataset])
 
+    def test_unrecognized_decisions_are_visible_and_not_counted_as_pending(self):
+        summary = build_summary([
+            {"id": "a", "decision": "accept"},
+            {"id": "b", "decision": "maybe"},
+            {"id": "c", "decision": ""},
+        ])
+        self.assertIn("Completed decisions: 1", summary)
+        self.assertIn("Pending decisions: 1", summary)
+        self.assertIn("Invalid/unrecognized decisions: 1", summary)
+        self.assertIn("- maybe: 1", summary)
+
     def test_rejects_duplicate_review_ids(self):
         with tempfile.TemporaryDirectory() as directory:
             review = Path(directory) / "review.csv"
