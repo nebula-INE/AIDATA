@@ -59,3 +59,8 @@ This repository starts with a small illustrative seed set and validation scaffol
 ## Safe code and research verification
 
 See [`docs/safe-code-and-research-verification.md`](docs/safe-code-and-research-verification.md) for the trust model, status requirements, controlled code-verification workflow, and source-grounded research evaluation criteria. Dataset code is untrusted input and must not be executed directly by the validation pipeline.
+
+
+## Fixed-fixture verification
+
+See [`docs/fixed-fixture-verification-runner.md`](docs/fixed-fixture-verification-runner.md) for the allowlisted test runner. It runs only repository-owned test suites and never executes code from dataset records; it is not a security sandbox.
