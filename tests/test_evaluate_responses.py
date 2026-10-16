@@ -44,13 +44,13 @@ class EvaluationHarnessTests(unittest.TestCase):
             output = root / "review.csv"
             evaluation.write_text(
                 json.dumps({"id": "eval.one", "language": "ja", "task_type": "coding",
-                            "prompt": "prompt", "target": "answer"}) + "\\n",
+                            "prompt": "prompt", "target": "answer"}) + "\n",
                 encoding="utf-8",
             )
             predictions.write_text(
-                json.dumps({"id": ["not", "hashable"], "prediction": "answer", "model": "m"}) + "\\n" +
-                json.dumps({"id": "eval.one", "prediction": 7, "model": "m"}) + "\\n" +
-                json.dumps({"id": "eval.one", "prediction": "answer", "model": " "}) + "\\n",
+                json.dumps({"id": ["not", "hashable"], "prediction": "answer", "model": "m"}) + "\n" +
+                json.dumps({"id": "eval.one", "prediction": 7, "model": "m"}) + "\n" +
+                json.dumps({"id": "eval.one", "prediction": "answer", "model": " "}) + "\n",
                 encoding="utf-8",
             )
             self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 1)
