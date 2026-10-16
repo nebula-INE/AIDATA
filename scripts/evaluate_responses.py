@@ -161,22 +161,43 @@ def parse_score(value: str) -> float | None:
 def summarize(input_path: str, output_path: str | None) -> int:
     try:
         with Path(input_path).open(encoding="utf-8-sig", newline="") as handle:
-            rows = list(csv.DictReader(handle))
-    except OSError as exc:
-        print(str(exc), file=sys.stderr)
+            reader = csv.DictReader(handle, strict=True)
+            headers = reader.fieldnames
+            if not headers:
+                print("CSV header row is missing.", file=sys.stderr)
+                return 1
+            duplicate_headers = sorted({name for name in headers if headers.count(name) > 1})
+            if duplicate_headers:
+                print(f"duplicate CSV columns: {duplicate_headers}", file=sys.stderr)
+                return 1
+            required = {"id", "model", "language", "task_type", "tags", *SCORE_COLUMNS}
+            missing_columns = required - set(headers)
+            if missing_columns:
+                print(f"missing columns: {sorted(missing_columns)}", file=sys.stderr)
+                return 1
+            rows = list(reader)
+    except (OSError, csv.Error) as exc:
+        print(f"could not read evaluation CSV: {exc}", file=sys.stderr)
         return 1
     if not rows:
         print("No scored rows found.", file=sys.stderr)
-        return 1
-    required = {"id", "model", "language", "task_type", "tags", *SCORE_COLUMNS}
-    missing_columns = required - set(rows[0])
-    if missing_columns:
-        print(f"missing columns: {sorted(missing_columns)}", file=sys.stderr)
         return 1
 
     parsed: list[dict[str, Any]] = []
     errors: list[str] = []
     for row_number, row in enumerate(rows, 2):
+        if None in row:
+            errors.append(f"row {row_number}: too many CSV fields")
+            continue
+        missing_values = [name for name, value in row.items() if value is None]
+        if missing_values:
+            errors.append(f"row {row_number}: missing CSV fields for columns {missing_values}")
+            continue
+        identifier = row.get("id", "")
+        if not identifier.strip():
+            errors.append(f"row {row_number}: id must be non-empty")
+        if not row.get("model", "").strip():
+            errors.append(f"row {row_number}: model must be non-empty")
         values: dict[str, float | None] = {}
         for column in SCORE_COLUMNS:
             try:
