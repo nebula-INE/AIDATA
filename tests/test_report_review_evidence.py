@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.report_review_evidence import build_summary, load_fixture_report, load_review_rows
+from scripts.report_review_evidence import (
+    build_summary, load_dataset_records, load_fixture_report, load_review_rows,
+)
 
 
 class ReviewEvidenceReportTests(unittest.TestCase):
@@ -44,6 +46,55 @@ class ReviewEvidenceReportTests(unittest.TestCase):
             self.assertIn("- timeout: 1", summary)
             self.assertIn("does not infer that a fixture validates", summary)
             self.assertIn("does not establish semantic correctness", summary)
+
+    def test_dataset_coverage_matches_ids_and_reports_unknown_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "data.jsonl"
+            dataset.write_text(
+                '\n'.join([
+                    json.dumps({"id": "a", "split": "train"}),
+                    json.dumps({"id": "b", "split": "validation"}),
+                    json.dumps({"id": "heldout", "split": "eval"}),
+                ]) + '\n',
+                encoding="utf-8",
+            )
+            review = root / "review.csv"
+            self._write_review(review, [
+                {"id": "a", "decision": "accept"},
+                {"id": "b", "decision": ""},
+                {"id": "not-in-data", "decision": "retire"},
+            ])
+            records = load_dataset_records([dataset])
+            summary = build_summary(load_review_rows(review), dataset_records=records)
+            self.assertIn("Dataset records in scope: 2", summary)
+            self.assertIn("Dataset records with a completed decision: 1", summary)
+            self.assertIn("Dataset records still without a completed decision: 1", summary)
+            self.assertIn("Review CSV IDs absent from the dataset inputs: 1", summary)
+            self.assertIn("- train: 1/1", summary)
+            self.assertIn("- validation: 0/1", summary)
+            self.assertIn("- not-in-data", summary)
+            self.assertNotIn("heldout", summary)
+
+    def test_dataset_eval_can_be_included_explicitly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "data.jsonl"
+            dataset.write_text(json.dumps({"id": "eval-id", "split": "eval"}) + '\n', encoding="utf-8")
+            self.assertEqual(load_dataset_records([dataset]), [])
+            self.assertEqual(load_dataset_records([dataset], include_eval=True), [
+                {"id": "eval-id", "split": "eval"}
+            ])
+
+    def test_dataset_duplicate_ids_are_rejected_even_when_eval_is_filtered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "data.jsonl"
+            dataset.write_text(
+                json.dumps({"id": "same", "split": "eval"}) + '\n' +
+                json.dumps({"id": "same", "split": "train"}) + '\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate dataset id"):
+                load_dataset_records([dataset])
 
     def test_rejects_duplicate_review_ids(self):
         with tempfile.TemporaryDirectory() as directory:
