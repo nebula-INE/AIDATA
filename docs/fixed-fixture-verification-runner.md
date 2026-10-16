@@ -22,6 +22,36 @@ separate subprocess with a timeout, stdin closed, and a reduced environment.
 The JSON report records exit status, duration, timeout, command, and captured
 output. A timeout is reported as `timeout`, never as a pass.
 
+## Prioritize the human-review queue
+
+Build a CSV of records that most need attention, without copying prompt/target
+text into the prioritization report:
+
+```bash
+python scripts/prioritize_review_queue.py data/seeds/*.jsonl data/eval/*.jsonl \
+  --review-csv artifacts/review.csv \
+  --output artifacts/prioritized-review-queue.csv
+```
+
+The review CSV is optional; if omitted, records without a matching completed
+review are placed at the top. Priority levels are workflow heuristics:
+
+- `P0`: review missing or requests revision/retirement, verification failed,
+  reviewer missing, or a serious status/evidence inconsistency.
+- `P1`: draft/unknown quality status, incomplete evidence metadata, or
+  verification not run.
+- `P2`: reviewed record with an accepted decision and recorded evidence,
+  but not marked verified.
+- `P3`: verified record with an accepted decision and recorded passing
+  verification evidence.
+
+The queue is sorted by priority and emits IDs, source file, split, task type,
+language, status, review decision, and evidence metadata. It rejects malformed
+JSONL and duplicate IDs rather than silently omitting them. These priority
+levels are not a correctness score. The tool never edits source JSONL or
+changes `quality.status`; reviewers must inspect the actual prompt, target,
+evidence, and verification scope before changing status.
+
 ## Review and evidence coverage report
 
 After a review CSV has been exported and filled in, summarize review progress:
@@ -37,7 +67,8 @@ evidence kinds, and recorded verification-result counts. With it, fixed-fixture
 result counts are displayed in a separate section. The tool deliberately does
 not infer that a fixture validates any particular dataset record, authenticate
 evidence references, or promote `quality.status`. See
-`tests/test_report_review_evidence.py` for malformed-input and aggregation
+`tests/test_report_review_evidence.py` and
+`tests/test_prioritize_review_queue.py` for aggregation and prioritization
 coverage.
 
 ## Link review decisions to evidence
