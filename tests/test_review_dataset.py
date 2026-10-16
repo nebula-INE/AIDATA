@@ -119,5 +119,33 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(validate_log(str(review), None), 1)
 
 
+    def test_validate_rejects_noncanonical_iso_review_date(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            review = root / "review.csv"
+            with review.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                row = {field: "" for field in FIELDS}
+                row.update({
+                    "id": "review.date-format",
+                    "reviewer": "reviewer-1",
+                    "review_date": "20261014",
+                    "decision": "accept",
+                    "answer_cardinality": "single",
+                    "expected_behavior": "answer",
+                    "interpretation": "The request has a deterministic interpretation.",
+                    "constraint_checklist": "Scope and edge cases checked.",
+                    "evidence_calibration": "Claims limited to the inspected evidence.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "manual_reasoning",
+                    "evidence_reference": "Reviewed prompt and target by hand.",
+                    "verification_result": "not_applicable",
+                    "rationale": "Reviewed independently.",
+                })
+                writer.writerow(row)
+            self.assertEqual(validate_log(str(review), None), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
