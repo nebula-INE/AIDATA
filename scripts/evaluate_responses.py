@@ -341,6 +341,62 @@ def summarize(input_path: str, output_path: str | None) -> int:
                     f"| {name_a} | {name_b} | {len(shared)} | {len(union)} | {jaccard:.1f}% |"
                 )
 
+    # Compare independent reviewers on the exact same item and model/run. N/A and
+    # blank scores are excluded; only axes with at least two numeric ratings count.
+    def run_key(row: dict[str, Any]) -> tuple[str, ...]:
+        return tuple(row.get(field, "").strip() for field in (
+            "model", "model_version", "prompt_template_version",
+            "decoding_settings", "run_date",
+        ))
+
+    run_labels: dict[tuple[str, ...], str] = {}
+    reviewer_scores: dict[tuple[tuple[str, ...], str, str], list[float]] = defaultdict(list)
+    for row in parsed:
+        key = run_key(row)
+        label = row.get("model") or "(unspecified)"
+        if row.get("model_version", "").strip():
+            label += f" ({row['model_version'].strip()})"
+        if row.get("prompt_template_version", "").strip():
+            label += f" [prompt={row['prompt_template_version'].strip()}]"
+        if row.get("decoding_settings", "").strip() and row["decoding_settings"].strip() != "{}":
+            label += f" [decoding={row['decoding_settings'].strip()}]"
+        if row.get("run_date", "").strip():
+            label += f" @ {row['run_date'].strip()}"
+        run_labels[key] = label
+        for axis in AXES:
+            score = row["_scores"][f"score_{axis}"]
+            if score is not None:
+                reviewer_scores[(key, row["id"], axis)].append(score)
+
+    disagreement_stats: dict[tuple[tuple[str, ...], str], dict[str, int]] = defaultdict(
+        lambda: {"comparable_items": 0, "disagreements": 0, "rating_pairs": 0}
+    )
+    for (key, _identifier, axis), values in reviewer_scores.items():
+        if len(values) < 2:
+            continue
+        stats = disagreement_stats[(key, axis)]
+        stats["comparable_items"] += 1
+        pair_count = len(values) * (len(values) - 1) // 2
+        stats["rating_pairs"] += pair_count
+        if len(set(values)) > 1:
+            stats["disagreements"] += 1
+
+    report.extend([
+        "", "## Inter-rater disagreement", "",
+        "For each model/run and axis, compares numeric scores from independent reviewers on the same item. Blank and N/A ratings are excluded. Disagreement is a review signal, not proof that either reviewer is wrong; adjudicate before treating scores as settled.",
+        "", "| Model/run | Axis | Items with 2+ ratings | Items with disagreement | Disagreement rate | Rating pairs |",
+        "|---|---|---:|---:|---:|---:|",
+    ])
+    if not disagreement_stats:
+        report.append("| — | — | 0 | 0 | — | 0 |")
+    else:
+        for (key, axis), stats in sorted(disagreement_stats.items(), key=lambda item: (run_labels[item[0][0]], item[0][1])):
+            rate = 100 * stats["disagreements"] / stats["comparable_items"] if stats["comparable_items"] else 0
+            report.append(
+                f"| {run_labels[key]} | {axis} | {stats['comparable_items']} | "
+                f"{stats['disagreements']} | {rate:.1f}% | {stats['rating_pairs']} |"
+            )
+
     report.extend(["", "## Per-axis results", "", "| Model | Axis | Scored | Mean (0–2) | Normalized score |", "|---|---|---:|---:|---:|"])
     for name, group in sorted(by_model.items()):
         stats = group_summary(group)
