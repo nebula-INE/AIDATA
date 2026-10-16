@@ -35,6 +35,27 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(rows[1]["notes"], "MISSING PREDICTION")
             self.assertEqual(rows[0]["score_meaning"], "")
 
+
+    def test_prepare_rejects_malformed_prediction_fields_without_crashing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evaluation = root / "eval.jsonl"
+            predictions = root / "predictions.jsonl"
+            output = root / "review.csv"
+            evaluation.write_text(
+                json.dumps({"id": "eval.one", "language": "ja", "task_type": "coding",
+                            "prompt": "prompt", "target": "answer"}) + "\\n",
+                encoding="utf-8",
+            )
+            predictions.write_text(
+                json.dumps({"id": ["not", "hashable"], "prediction": "answer", "model": "m"}) + "\\n" +
+                json.dumps({"id": "eval.one", "prediction": 7, "model": "m"}) + "\\n" +
+                json.dumps({"id": "eval.one", "prediction": "answer", "model": " "}) + "\\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 1)
+            self.assertFalse(output.exists())
+
     def test_summarize_uses_denominator_of_scored_axes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.csv"
