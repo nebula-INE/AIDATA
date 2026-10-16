@@ -27,6 +27,32 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(row["verification_result"], "")
             self.assertIn("draft", row["rationale"])
 
+
+    def test_export_excludes_eval_records_unless_explicitly_requested(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "data.jsonl"
+            default_output = root / "review.csv"
+            eval_output = root / "review-with-eval.csv"
+            records = [
+                {"id": "review.train", "split": "train", "prompt": "train prompt", "target": "train target"},
+                {"id": "review.eval", "split": "eval", "prompt": "eval prompt", "target": "eval target"},
+            ]
+            source.write_text(
+                "".join(json.dumps(record, ensure_ascii=False) + "\\n" for record in records),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(export_queue([str(source)], str(default_output)), 0)
+            with default_output.open(encoding="utf-8-sig", newline="") as handle:
+                default_rows = list(csv.DictReader(handle))
+            self.assertEqual([row["id"] for row in default_rows], ["review.train"])
+
+            self.assertEqual(export_queue([str(source)], str(eval_output), include_eval=True), 0)
+            with eval_output.open(encoding="utf-8-sig", newline="") as handle:
+                eval_rows = list(csv.DictReader(handle))
+            self.assertEqual({row["id"] for row in eval_rows}, {"review.train", "review.eval"})
+
     def test_validate_accepts_completed_review_and_writes_summary(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
