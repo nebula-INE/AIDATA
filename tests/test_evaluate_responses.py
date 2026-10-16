@@ -190,6 +190,35 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(summarize(str(path), str(report)), 0)
             self.assertIn("1.5", report.read_text(encoding="utf-8"))
 
+    def test_summarize_reports_model_item_coverage_and_pairwise_overlap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "reviewer", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for identifier, model in (("x", "model-a"), ("y", "model-a"),
+                                          ("x", "model-b"), ("z", "model-b")):
+                    row = {
+                        "id": identifier, "model": model, "model_version": "v1",
+                        "prompt_template_version": "system-v1", "decoding_settings": '{"temperature": 0}',
+                        "run_date": "2026-10-17", "reviewer": "reviewer-a",
+                        "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": "2" if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            report = Path(directory) / "report.md"
+            self.assertEqual(summarize(str(path), str(report)), 0)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("## Item coverage", content)
+            self.assertIn("| model-a (v1) [prompt=system-v1] [decoding={\"temperature\": 0}] @ 2026-10-17 | 2 | 2 | 100.0% |", content)
+            self.assertIn("## Pairwise scored-item overlap", content)
+            self.assertIn("| model-a (v1) [prompt=system-v1] [decoding={\"temperature\": 0}] @ 2026-10-17 | model-b (v1) [prompt=system-v1] [decoding={\"temperature\": 0}] @ 2026-10-17 | 1 | 3 | 33.3% |", content)
+
     def test_summarize_rejects_malformed_csv_row_width(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.csv"
