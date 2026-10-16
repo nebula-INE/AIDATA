@@ -1,4 +1,7 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts.verify_fixed_fixtures import (
@@ -6,6 +9,7 @@ from scripts.verify_fixed_fixtures import (
     build_command,
     classify_returncode,
     main,
+    write_report,
 )
 
 
@@ -31,6 +35,20 @@ class FixedFixtureRunnerTests(unittest.TestCase):
         self.assertEqual(classify_returncode(0), "passed")
         self.assertEqual(classify_returncode(1), "failed")
         self.assertEqual(classify_returncode(-9), "failed")
+
+    def test_report_is_valid_json_and_replaces_existing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "nested" / "report.json"
+            report_path.parent.mkdir()
+            report_path.write_text('{"old": true}\n', encoding="utf-8")
+
+            write_report(report_path, json.dumps({"status": "passed"}))
+
+            self.assertEqual(json.loads(report_path.read_text(encoding="utf-8")), {"status": "passed"})
+            self.assertEqual(
+                sorted(path.name for path in report_path.parent.iterdir()),
+                ["report.json"],
+            )
 
     def test_cli_lists_allowlisted_ids(self):
         with patch("builtins.print") as output:
