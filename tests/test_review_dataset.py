@@ -39,7 +39,7 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
                 {"id": "review.eval", "split": "eval", "prompt": "eval prompt", "target": "eval target"},
             ]
             source.write_text(
-                "".join(json.dumps(record, ensure_ascii=False) + "\\n" for record in records),
+                "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records),
                 encoding="utf-8",
             )
 
