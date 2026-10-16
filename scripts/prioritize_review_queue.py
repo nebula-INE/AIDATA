@@ -125,6 +125,19 @@ def prioritize(records: list[dict[str, Any]], reviews: dict[str, dict[str, str]]
         if status == "reviewed" and decision != "accept":
             priority = min(priority, "P1")
             reasons.append("review_status_consistency_check")
+        if (
+            status == "reviewed" and decision == "accept" and reviewer
+            and evidence_kind and evidence_reference
+            and verification in {"passed", "not_applicable"}
+            and priority == "P3"
+        ):
+            priority = "P2"
+        if (
+            status == "verified" and decision == "accept" and reviewer
+            and evidence_kind and evidence_reference and verification == "passed"
+            and priority == "P3"
+        ):
+            reasons.append("recorded_verification_evidence_present")
 
         output.append({
             "priority": priority,
