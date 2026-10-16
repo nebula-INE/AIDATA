@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.prioritize_review_queue import FIELDS, prioritize, read_records, read_reviews
+from scripts.prioritize_review_queue import prioritize, read_records, read_reviews
 
 
 class PrioritizedReviewQueueTests(unittest.TestCase):
@@ -54,6 +54,22 @@ class PrioritizedReviewQueueTests(unittest.TestCase):
         self.assertEqual(row["priority"], "P0")
         self.assertIn("verification_failed", row["reason"])
         self.assertIn("status_review_consistency_check", row["reason"])
+
+    def test_eval_records_are_excluded_unless_explicitly_requested(self):
+        records = [
+            {
+                "id": "train.one", "split": "train", "task_type": "coding",
+                "language": "ja", "quality": {"status": "draft"},
+            },
+            {
+                "id": "eval.one", "split": "eval", "task_type": "coding",
+                "language": "ja", "quality": {"status": "draft"},
+            },
+        ]
+        default_rows = prioritize(records, {})
+        self.assertEqual([row["id"] for row in default_rows], ["train.one"])
+        explicit_rows = prioritize(records, {}, include_eval=True)
+        self.assertEqual({row["id"] for row in explicit_rows}, {"train.one", "eval.one"})
 
     def test_duplicate_review_ids_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
