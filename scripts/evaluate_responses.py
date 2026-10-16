@@ -302,6 +302,45 @@ def summarize(input_path: str, output_path: str | None) -> int:
             pct = stats["overall_normalized_percent"]
             report.append(f"| {name} | {stats['items']} | {stats['total_axis_ratings']} | {mean if mean is not None else '—'} | {f'{pct}%' if pct is not None else '—'} |")
 
+    # Report both item coverage and the exact overlap used for model comparisons.
+    # Reviewer duplicates are collapsed to item IDs for coverage purposes.
+    report.extend([
+        "", "## Item coverage", "",
+        "Coverage counts unique evaluation IDs, not reviewer rows. A model with fewer scored items may have a misleading aggregate; compare models on shared scored IDs.",
+        "", "| Model/run | Unique items | Items with any score | Scored-item coverage |",
+        "|---|---:|---:|---:|",
+    ])
+    scored_item_ids: dict[str, set[str]] = {}
+    for name, group in sorted(by_model.items()):
+        item_ids = {row["id"] for row in group}
+        scored_ids = {
+            row["id"] for row in group
+            if any(value is not None for value in row["_scores"].values())
+        }
+        scored_item_ids[name] = scored_ids
+        coverage = 100 * len(scored_ids) / len(item_ids) if item_ids else 0
+        report.append(f"| {name} | {len(item_ids)} | {len(scored_ids)} | {coverage:.1f}% |")
+
+    report.extend([
+        "", "## Pairwise scored-item overlap", "",
+        "Jaccard = shared scored item IDs divided by the union of scored item IDs. This is a coverage diagnostic, not a significance test.",
+        "", "| Model A | Model B | Shared scored items | Union of scored items | Jaccard overlap |",
+        "|---|---|---:|---:|---:|",
+    ])
+    model_names = sorted(scored_item_ids)
+    if len(model_names) < 2:
+        report.append("| — | — | — | — | Need at least two model/run groups |")
+    else:
+        for index, name_a in enumerate(model_names):
+            for name_b in model_names[index + 1:]:
+                ids_a, ids_b = scored_item_ids[name_a], scored_item_ids[name_b]
+                shared = ids_a & ids_b
+                union = ids_a | ids_b
+                jaccard = 100 * len(shared) / len(union) if union else 0
+                report.append(
+                    f"| {name_a} | {name_b} | {len(shared)} | {len(union)} | {jaccard:.1f}% |"
+                )
+
     report.extend(["", "## Per-axis results", "", "| Model | Axis | Scored | Mean (0–2) | Normalized score |", "|---|---|---:|---:|---:|"])
     for name, group in sorted(by_model.items()):
         stats = group_summary(group)
