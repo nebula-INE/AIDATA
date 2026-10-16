@@ -144,5 +144,36 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertIn("[prompt=system-v2]", content)
 
 
+    def test_summarize_rejects_malformed_csv_row_width(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(fields)
+                writer.writerow(["x", "m", "ja", "coding", "", "2", "N/A", "N/A", "N/A", "N/A", "N/A", "unexpected"])
+            self.assertEqual(summarize(str(path), None), 1)
+
+    def test_summarize_rejects_duplicate_csv_headers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
+            fields[1] = "id"
+            path.write_text(",".join(fields) + "\\n" + ",".join(["x"] * len(fields)) + "\\n", encoding="utf-8")
+            self.assertEqual(summarize(str(path), None), 1)
+
+    def test_summarize_rejects_blank_identity_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                row = {"id": " ", "model": "", "language": "ja", "task_type": "coding", "tags": ""}
+                row.update({f"score_{a}": "2" if a == "meaning" else "N/A" for a in AXES})
+                writer.writerow(row)
+            self.assertEqual(summarize(str(path), None), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
