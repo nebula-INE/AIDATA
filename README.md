@@ -59,6 +59,6 @@ This repository starts with a small illustrative seed set and validation scaffol
 
 See [`docs/safe-code-and-research-verification.md`](docs/safe-code-and-research-verification.md) for the trust model, status requirements, controlled code-verification workflow, and source-grounded research evaluation criteria. Dataset code is untrusted input and must not be executed directly by the validation pipeline.
 
-## Fixed-fixture verification
+## Fixed-fixture verification and review queue
 
-See [`docs/fixed-fixture-verification-runner.md`](docs/fixed-fixture-verification-runner.md) for the allowlisted test runner and review evidence coverage report. It runs only repository-owned test suites and never executes code from dataset records; it is not a security sandbox.
+See [`docs/fixed-fixture-verification-runner.md`](docs/fixed-fixture-verification-runner.md) for the allowlisted test runner, review evidence coverage report, and prioritized human-review queue. The queue ranks records needing attention but never edits data or promotes `quality.status` automatically.
