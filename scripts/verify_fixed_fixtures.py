@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,35 @@ def build_command(fixture_id: str) -> list[str]:
 
 def classify_returncode(returncode: int) -> str:
     return "passed" if returncode == 0 else "failed"
+
+
+def write_report(path: Path, serialized: str) -> None:
+    """Atomically replace a report so interruption cannot leave a partial JSON file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(serialized)
+            temporary_file.write("\n")
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
 
 
 def run_fixture(fixture_id: str, timeout_seconds: int) -> dict[str, Any]:
@@ -130,8 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     serialized = json.dumps(report, ensure_ascii=False, indent=2)
     print(serialized)
     if args.report:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(serialized + "\n", encoding="utf-8")
+        write_report(args.report, serialized)
     return 0 if all(result["status"] == "passed" for result in results) else 1
 
 
