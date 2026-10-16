@@ -77,9 +77,17 @@ def read_reviews(path: str | None) -> dict[str, dict[str, str]]:
         return reviews
 
 
-def prioritize(records: list[dict[str, Any]], reviews: dict[str, dict[str, str]]) -> list[dict[str, str]]:
+def prioritize(
+    records: list[dict[str, Any]],
+    reviews: dict[str, dict[str, str]],
+    *,
+    include_eval: bool = False,
+) -> list[dict[str, str]]:
+    """Return the review queue; held-out eval records are excluded by default."""
     output: list[dict[str, str]] = []
     for record in records:
+        if record.get("split") == "eval" and not include_eval:
+            continue
         identifier = record["id"]
         quality = record.get("quality") if isinstance(record.get("quality"), dict) else {}
         review = reviews.get(identifier, {})
@@ -162,12 +170,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("inputs", nargs="+", help="JSONL dataset files")
     parser.add_argument("--review-csv", help="optional CSV exported by review_dataset.py")
+    parser.add_argument(
+        "--include-eval", action="store_true",
+        help="explicitly include held-out eval records in the review queue",
+    )
     parser.add_argument("--output", required=True, help="output CSV path")
     args = parser.parse_args(argv)
     try:
         records = read_records(args.inputs)
         reviews = read_reviews(args.review_csv)
-        rows = prioritize(records, reviews)
+        rows = prioritize(records, reviews, include_eval=args.include_eval)
+        excluded_eval = sum(1 for record in records if record.get("split") == "eval") if not args.include_eval else 0
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -176,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
             writer.writerows(rows)
         counts = Counter(row["priority"] for row in rows)
         print(f"Records prioritized: {len(rows)}")
+        if excluded_eval:
+            print(f"Eval records excluded by default: {excluded_eval} (use --include-eval to opt in)")
         for priority in ("P0", "P1", "P2", "P3"):
             print(f"{priority}: {counts[priority]}")
         print(f"Output: {output}")
