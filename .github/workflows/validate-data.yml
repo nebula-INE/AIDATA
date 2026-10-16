@@ -24,6 +24,7 @@ on:
       - "scripts/report_dataset_coverage.py"
       - "scripts/review_dataset.py"
       - "scripts/evaluate_responses.py"
+      - "scripts/verify_fixed_fixtures.py"
       - "tests/**"
       - ".github/workflows/validate-data.yml"
   workflow_dispatch:
