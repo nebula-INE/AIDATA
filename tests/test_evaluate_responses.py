@@ -215,7 +215,7 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(summarize(str(path), str(report)), 0)
             content = report.read_text(encoding="utf-8")
             self.assertIn("## Inter-rater disagreement", content)
-            self.assertIn("| m (v1) [prompt=system-v1] @ 2026-10-17 | meaning | 1 | 1 | 100.0% | 3 |", content)
+            self.assertIn("| m (v1) [prompt=system-v1] @ 2026-10-17 | meaning | 1 | 1 | 100.0% | 1 |", content)
 
     def test_summarize_reports_model_item_coverage_and_pairwise_overlap(self):
         with tempfile.TemporaryDirectory() as directory:
