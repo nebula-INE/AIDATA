@@ -130,3 +130,23 @@ leakage checks, coverage reporting, review workflow, and response evaluation.
 It is deliberately narrow: add a fixture only when its test file is part of the
 repository and its scope is reviewed. Do not derive fixture mappings from
 dataset content.
+
+
+## Dataset-to-review coverage audit
+
+The evidence report can compare a completed review CSV against source JSONL IDs:
+
+```bash
+python scripts/report_review_evidence.py artifacts/review.csv \
+  --dataset data/seeds/*.jsonl \
+  --output artifacts/review-evidence-summary.md
+```
+
+It reports dataset records with a review row, completed decisions, records still
+without completed decisions, review IDs absent from the supplied dataset, and
+coverage by split. Only `accept`, `revise`, and `retire` count as completed
+decisions; a blank/pending row is not considered reviewed. Dataset IDs are
+validated across all supplied records before eval filtering. `split: eval`
+is excluded by default; use `--include-eval` only for an intentional eval audit
+(and only together with `--dataset`). This is workflow coverage, not a
+semantic-correctness or model-capability score.
