@@ -164,6 +164,15 @@ def summarize(input_path: str, output_path: str | None) -> int:
         print("\n".join(errors), file=sys.stderr)
         return 1
 
+    total_ratings = sum(
+        value is not None
+        for row in parsed
+        for value in row["_scores"].values()
+    )
+    if total_ratings == 0:
+        print("No scored ratings found; score at least one applicable axis before summarizing.", file=sys.stderr)
+        return 1
+
     def group_summary(group: list[dict[str, Any]]) -> dict[str, Any]:
         all_scores = [score for row in group for score in row["_scores"].values() if score is not None]
         axis_stats = {}
@@ -193,8 +202,14 @@ def summarize(input_path: str, output_path: str | None) -> int:
         model_label = row.get("model") or "(unspecified)"
         model_version = row.get("model_version", "").strip()
         run_date = row.get("run_date", "").strip()
+        prompt_template = row.get("prompt_template_version", "").strip()
+        decoding_settings = row.get("decoding_settings", "").strip()
         if model_version:
             model_label += f" ({model_version})"
+        if prompt_template:
+            model_label += f" [prompt={prompt_template}]"
+        if decoding_settings and decoding_settings != "{}":
+            model_label += f" [decoding={decoding_settings}]"
         if run_date:
             model_label += f" @ {run_date}"
         by_model[model_label].append(row)
