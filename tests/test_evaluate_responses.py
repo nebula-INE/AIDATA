@@ -64,5 +64,43 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(summarize(str(path), None), 1)
 
 
+    def test_summarize_rejects_unscored_worksheet(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                row = {"id": "x", "model": "m", "language": "ja", "task_type": "reasoning", "tags": ""}
+                row.update({f"score_{a}": "" for a in AXES})
+                writer.writerow(row)
+            self.assertEqual(summarize(str(path), None), 1)
+
+    def test_summarize_separates_prompt_template_versions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for identifier, template in (("x", "system-v1"), ("x", "system-v2")):
+                    row = {
+                        "id": identifier, "model": "m", "model_version": "v1",
+                        "prompt_template_version": template, "decoding_settings": '{"temperature": 0}',
+                        "run_date": "2026-10-17", "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": "2" if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            report = Path(directory) / "report.md"
+            self.assertEqual(summarize(str(path), str(report)), 0)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("[prompt=system-v1]", content)
+            self.assertIn("[prompt=system-v2]", content)
+
+
 if __name__ == "__main__":
     unittest.main()
