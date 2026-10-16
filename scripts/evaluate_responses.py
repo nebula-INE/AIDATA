@@ -205,6 +205,20 @@ def summarize(input_path: str, output_path: str | None) -> int:
             except ValueError as exc:
                 errors.append(f"row {row_number}, {column}: {exc}")
         parsed.append({**row, "_scores": values})
+    # A repeated item/run/reviewer row silently overweights that item in aggregates.
+    # Keep separate prompt/model/decoding runs and independent reviewers distinct.
+    seen_review_rows: set[tuple[str, ...]] = set()
+    for row_number, row in enumerate(parsed, 2):
+        identity = tuple(row.get(field, "").strip() for field in (
+            "id", "model", "model_version", "prompt_template_version",
+            "decoding_settings", "run_date", "reviewer",
+        ))
+        if identity in seen_review_rows:
+            errors.append(
+                f"row {row_number}: duplicate item/run/reviewer row for id {row.get('id', '')!r}; "
+                "do not count the same review twice"
+            )
+        seen_review_rows.add(identity)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
