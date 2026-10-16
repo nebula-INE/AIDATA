@@ -9,7 +9,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from audit_dataset import find_duplicates, load_records
+try:
+    from .audit_dataset import find_duplicates, load_records
+except ImportError:  # Executed as a standalone script.
+    from audit_dataset import find_duplicates, load_records
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,13 +33,11 @@ def main(argv: list[str] | None = None) -> int:
         print("Both train and eval inputs must contain readable prompt records.", file=sys.stderr)
         return 2
 
-    # Prefix IDs for the report only, retaining file/line provenance.
     for record in train:
         record["split"] = "train"
     for record in evaluation:
         record["split"] = "eval"
 
-    # Compare only cross-split pairs; same-split duplicates are handled by audit_dataset.py.
     exact, near = find_duplicates(train + evaluation, args.threshold)
     exact = [(a, b) for a, b in exact if a["split"] != b["split"]]
     near = [(a, b, score) for a, b, score in near if a["split"] != b["split"]]
@@ -50,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Cross-split near-duplicate candidates (threshold={args.threshold:.2f}): {len(near)}")
     for a, b, score in sorted(near, key=lambda item: item[2], reverse=True):
         print(f"  {score:.3f}  {a['id']} ({a['file']}:{a['line']}) [{a['split']}] <-> "
-              f"{b['id']} ({b['file']}:{b['line']}) [{b['split}]")
+              f"{b['id']} ({b['file']}:{b['line']}) [{b['split']}]")
     print("Near matches are advisory only; manually review semantic similarity and answer leakage.")
     return 1 if exact and not args.allow_exact else 0
 
