@@ -74,6 +74,15 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
             errors.append(f"prediction missing fields {sorted(missing)}: {item.get('id', '<no id>')}")
             continue
         identifier = item["id"]
+        if not isinstance(identifier, str) or not identifier:
+            errors.append(f"prediction has invalid id: {identifier!r}")
+            continue
+        if not isinstance(item["prediction"], str):
+            errors.append(f"prediction must be a string for id: {identifier}")
+            continue
+        if not isinstance(item["model"], str) or not item["model"].strip():
+            errors.append(f"model must be a non-empty string for id: {identifier}")
+            continue
         if identifier not in eval_by_id:
             errors.append(f"prediction id not in evaluation set: {identifier}")
         if identifier in predictions_by_id:
