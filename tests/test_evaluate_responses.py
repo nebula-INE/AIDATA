@@ -144,6 +144,52 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertIn("[prompt=system-v2]", content)
 
 
+    def test_summarize_rejects_duplicate_item_run_reviewer_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "reviewer", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for _ in range(2):
+                    row = {
+                        "id": "x", "model": "m", "model_version": "v1",
+                        "prompt_template_version": "system-v1", "decoding_settings": '{"temperature": 0}',
+                        "run_date": "2026-10-17", "reviewer": "reviewer-a",
+                        "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": "2" if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            self.assertEqual(summarize(str(path), None), 1)
+
+    def test_summarize_allows_independent_reviewers_for_same_item(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "reviewer", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for reviewer, score in (("reviewer-a", "2"), ("reviewer-b", "1")):
+                    row = {
+                        "id": "x", "model": "m", "model_version": "v1",
+                        "prompt_template_version": "system-v1", "decoding_settings": '{"temperature": 0}',
+                        "run_date": "2026-10-17", "reviewer": reviewer,
+                        "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": score if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            report = Path(directory) / "report.md"
+            self.assertEqual(summarize(str(path), str(report)), 0)
+            self.assertIn("1.5", report.read_text(encoding="utf-8"))
+
     def test_summarize_rejects_malformed_csv_row_width(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.csv"
