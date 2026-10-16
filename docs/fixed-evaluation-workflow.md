@@ -51,7 +51,7 @@ After completing the CSV scores:
 python scripts/evaluate_responses.py summarize review.csv --output report.md
 ```
 
-To compare models, combine rows from separate runs into one scoring CSV while preserving a row per (model, item) and including run metadata columns. The report includes per-model, per-language, per-task, per-tag, and per-axis results. Review per-item regressions and category shifts; do not rely only on the overall mean.
+To compare models, combine rows from separate runs into one scoring CSV while preserving a row per (model, item) and including run metadata columns. The report includes per-model, per-language, per-task, per-tag, and per-axis results, plus unique-item coverage and pairwise overlap among scored item IDs. Pairwise Jaccard overlap shows how much of each model/run's scored set is shared; low overlap means aggregate scores are not a fair direct comparison. Review per-item regressions and category shifts; do not rely only on the overall mean. Coverage counts unique IDs rather than reviewer rows.
 
 ## 5. Reporting rules
 
