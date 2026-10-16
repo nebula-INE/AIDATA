@@ -20,7 +20,7 @@ Example:
 {"id":"language.ja.eval.001","prediction":"回答本文","model":"axral-baseline","model_version":"checkpoint-or-api-version","prompt_template_version":"system-prompt-v1","decoding_settings":{"temperature":0},"run_date":"2026-10-13"}
 ```
 
-The evaluation harness joins predictions by ID and creates a CSV review worksheet. Missing predictions remain visible and are not silently counted as correct.
+The evaluation harness joins predictions by ID and creates a CSV review worksheet. Missing predictions remain visible and are not silently counted as correct. The summarizer rejects duplicate rows for the same item, model/checkpoint, prompt template, decoding settings, run date, and reviewer so accidental duplicate imports do not inflate scores; distinct reviewers remain separate for adjudication.
 
 ```bash
 python scripts/evaluate_responses.py prepare \
