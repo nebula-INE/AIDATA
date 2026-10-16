@@ -28,13 +28,16 @@ Build a CSV of records that most need attention, without copying prompt/target
 text into the prioritization report:
 
 ```bash
-python scripts/prioritize_review_queue.py data/seeds/*.jsonl data/eval/*.jsonl \
+python scripts/prioritize_review_queue.py data/seeds/*.jsonl \
   --review-csv artifacts/review.csv \
   --output artifacts/prioritized-review-queue.csv
 ```
 
 The review CSV is optional; if omitted, records without a matching completed
-review are placed at the top. Priority levels are workflow heuristics:
+review are placed at the top. Held-out `split: eval` records are excluded by
+default so they are not mixed into the routine training-data review queue. To
+review evaluation records intentionally, pass `--include-eval` explicitly.
+Priority levels are workflow heuristics:
 
 - `P0`: review missing or requests revision/retirement, verification failed,
   reviewer missing, or a serious status/evidence inconsistency.
