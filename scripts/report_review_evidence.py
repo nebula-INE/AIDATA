@@ -102,15 +102,25 @@ def build_summary(
     decisions = Counter((row.get("decision") or "").strip() or "pending" for row in rows)
     evidence = Counter((row.get("evidence_kind") or "").strip() or "unspecified" for row in rows)
     verification = Counter((row.get("verification_result") or "").strip() or "unspecified" for row in rows)
+    known_decisions = COMPLETED_DECISIONS | {"pending"}
+    invalid_decisions = {
+        decision: count for decision, count in decisions.items()
+        if decision not in known_decisions
+    }
     lines = [
         "# Review and Evidence Coverage", "",
         f"- Review rows: {len(rows)}",
         f"- Completed decisions: {sum(decisions[key] for key in COMPLETED_DECISIONS)}",
-        f"- Pending decisions: {decisions['pending']}", "",
+        f"- Pending decisions: {decisions['pending']}",
+        f"- Invalid/unrecognized decisions: {sum(invalid_decisions.values())}", "",
         "## Decisions", "",
     ]
     for key in ("accept", "revise", "retire", "pending"):
         lines.append(f"- {key}: {decisions[key]}")
+    if invalid_decisions:
+        lines.extend(["", "### Unrecognized decision values", ""])
+        for decision, count in sorted(invalid_decisions.items()):
+            lines.append(f"- {decision}: {count}")
     lines.extend(["", "## Evidence kinds", ""])
     for key, count in sorted(evidence.items()):
         lines.append(f"- {key}: {count}")
