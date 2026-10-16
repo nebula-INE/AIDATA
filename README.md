@@ -54,3 +54,8 @@ The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](d
 ## Starter status
 
 This repository starts with a small illustrative seed set and validation scaffolding. It is not yet a production-scale training corpus. Expand it through licensed sources, executable tests, review, and documented evaluation before model training.
+
+
+## Safe code and research verification
+
+See [`docs/safe-code-and-research-verification.md`](docs/safe-code-and-research-verification.md) for the trust model, status requirements, controlled code-verification workflow, and source-grounded research evaluation criteria. Dataset code is untrusted input and must not be executed directly by the validation pipeline.
