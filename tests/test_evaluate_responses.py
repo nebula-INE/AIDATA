@@ -56,6 +56,27 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 1)
             self.assertFalse(output.exists())
 
+    def test_prepare_rejects_malformed_evaluation_display_fields(self):
+        malformed_records = [
+            {"id": "eval.one", "tags": "not-a-list"},
+            {"id": "eval.one", "tags": ["valid", 7]},
+            {"id": "eval.one", "prompt": ["not", "text"]},
+            {"id": "eval.one", "target": None},
+        ]
+        for record in malformed_records:
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                evaluation = root / "eval.jsonl"
+                predictions = root / "predictions.jsonl"
+                output = root / "review.csv"
+                evaluation.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+                predictions.write_text(
+                    json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\\n",
+                    encoding="utf-8",
+                )
+                self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 1)
+                self.assertFalse(output.exists())
+
     def test_summarize_uses_denominator_of_scored_axes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.csv"
