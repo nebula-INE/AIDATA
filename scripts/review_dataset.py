@@ -20,11 +20,17 @@ FIELDS = (
     "prompt", "target", "reviewer", "review_date", "decision",
     "answer_cardinality", "expected_behavior", "interpretation",
     "constraint_checklist", "evidence_calibration", "language_quality",
-    "rationale",
+    "evidence_kind", "evidence_reference", "verification_commit",
+    "verification_result", "rationale",
 )
 DECISIONS = {"accept", "revise", "retire"}
 CARDINALITIES = {"single", "multiple", "context_dependent", "clarification_needed"}
 BEHAVIORS = {"answer", "list_alternatives", "state_uncertainty", "ask_clarification"}
+EVIDENCE_KINDS = {
+    "official_source", "independent_source", "fixed_fixture_report",
+    "manual_reasoning", "not_applicable",
+}
+VERIFICATION_RESULTS = {"passed", "failed", "not_run", "not_applicable"}
 
 
 def read_jsonl(paths: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
@@ -92,6 +98,10 @@ def export_queue(input_paths: list[str], output_path: str) -> int:
                 "constraint_checklist": "",
                 "evidence_calibration": "",
                 "language_quality": "",
+                "evidence_kind": "",
+                "evidence_reference": "",
+                "verification_commit": "",
+                "verification_result": "",
                 "rationale": f"Current status: {quality.get('status', 'missing')}. Review independently; do not accept solely because the record parses.",
             })
     print(f"Exported {len(records)} records to {output}. Review decisions are blank by design.")
@@ -122,9 +132,12 @@ def validate_log(input_path: str, output_path: str | None) -> int:
         elif identifier in seen:
             errors.append(f"row {row_number}: duplicate review id {identifier}")
         seen.add(identifier)
-        for field in ("reviewer", "review_date", "decision", "rationale", "interpretation",
-                      "answer_cardinality", "expected_behavior", "constraint_checklist",
-                      "evidence_calibration", "language_quality"):
+        for field in (
+            "reviewer", "review_date", "decision", "rationale", "interpretation",
+            "answer_cardinality", "expected_behavior", "constraint_checklist",
+            "evidence_calibration", "language_quality", "evidence_kind",
+            "evidence_reference", "verification_result",
+        ):
             if not (row.get(field) or "").strip():
                 errors.append(f"row {row_number}: {field} is required for a completed review")
         decision = (row.get("decision") or "").strip()
@@ -138,6 +151,23 @@ def validate_log(input_path: str, output_path: str | None) -> int:
         behavior = (row.get("expected_behavior") or "").strip()
         if behavior and behavior not in BEHAVIORS:
             errors.append(f"row {row_number}: expected_behavior must be one of {sorted(BEHAVIORS)}")
+        evidence_kind = (row.get("evidence_kind") or "").strip()
+        if evidence_kind and evidence_kind not in EVIDENCE_KINDS:
+            errors.append(f"row {row_number}: evidence_kind must be one of {sorted(EVIDENCE_KINDS)}")
+        verification_result = (row.get("verification_result") or "").strip()
+        if verification_result and verification_result not in VERIFICATION_RESULTS:
+            errors.append(f"row {row_number}: verification_result must be one of {sorted(VERIFICATION_RESULTS)}")
+        verification_commit = (row.get("verification_commit") or "").strip()
+        if verification_commit and (
+            len(verification_commit) not in {7, 40}
+            or any(character not in "0123456789abcdefABCDEF" for character in verification_commit)
+        ):
+            errors.append(f"row {row_number}: verification_commit must be a 7- or 40-character hexadecimal commit SHA")
+        if evidence_kind == "fixed_fixture_report" and verification_result in {"passed", "failed"}:
+            if not verification_commit:
+                errors.append(f"row {row_number}: verification_commit is required for fixture results")
+            if not (row.get("evidence_reference") or "").strip():
+                errors.append(f"row {row_number}: evidence_reference must identify the fixture report")
         review_date = (row.get("review_date") or "").strip()
         if review_date:
             try:
@@ -153,6 +183,7 @@ def validate_log(input_path: str, output_path: str | None) -> int:
         f"- Accept: {decisions.get('accept', 0)}",
         f"- Revise: {decisions.get('revise', 0)}",
         f"- Retire: {decisions.get('retire', 0)}", "",
+        "Evidence references and commit IDs are recorded as supplied; this validator does not fetch or authenticate them.",
         "This summary validates completed review metadata only; it does not verify reviewer competence or prove semantic correctness.",
     ]
     content = "\n".join(summary) + "\n"
