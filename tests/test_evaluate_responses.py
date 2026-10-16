@@ -159,7 +159,7 @@ class EvaluationHarnessTests(unittest.TestCase):
             path = Path(directory) / "scores.csv"
             fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
             fields[1] = "id"
-            path.write_text(",".join(fields) + "\\n" + ",".join(["x"] * len(fields)) + "\\n", encoding="utf-8")
+            path.write_text(",".join(fields) + "\n" + ",".join(["x"] * len(fields)) + "\n", encoding="utf-8")
             self.assertEqual(summarize(str(path), None), 1)
 
     def test_summarize_rejects_blank_identity_fields(self):
