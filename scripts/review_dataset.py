@@ -59,7 +59,9 @@ def read_jsonl(paths: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
     return records, errors
 
 
-def export_queue(input_paths: list[str], output_path: str) -> int:
+def export_queue(
+    input_paths: list[str], output_path: str, *, include_eval: bool = False
+) -> int:
     records, errors = read_jsonl(input_paths)
     ids: set[str] = set()
     for record in records:
@@ -73,6 +75,9 @@ def export_queue(input_paths: list[str], output_path: str) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
+    excluded_eval = sum(1 for record in records if record.get("split") == "eval") if not include_eval else 0
+    if not include_eval:
+        records = [record for record in records if record.get("split") != "eval"]
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -105,6 +110,8 @@ def export_queue(input_paths: list[str], output_path: str) -> int:
                 "rationale": f"Current status: {quality.get('status', 'missing')}. Review independently; do not accept solely because the record parses.",
             })
     print(f"Exported {len(records)} records to {output}. Review decisions are blank by design.")
+    if excluded_eval:
+        print(f"Eval records excluded by default: {excluded_eval} (use --include-eval to opt in)")
     return 0
 
 
@@ -200,12 +207,16 @@ def main(argv: list[str] | None = None) -> int:
     export_parser = subparsers.add_parser("export", help="export records into a human-review CSV")
     export_parser.add_argument("files", nargs="+")
     export_parser.add_argument("--output", required=True)
+    export_parser.add_argument(
+        "--include-eval", action="store_true",
+        help="explicitly include held-out eval records in the human-review export",
+    )
     validate_parser = subparsers.add_parser("validate", help="validate a completed review CSV")
     validate_parser.add_argument("review_csv")
     validate_parser.add_argument("--output", help="write a Markdown summary")
     args = parser.parse_args(argv)
     if args.command == "export":
-        return export_queue(args.files, args.output)
+        return export_queue(args.files, args.output, include_eval=args.include_eval)
     return validate_log(args.review_csv, args.output)
 
 
