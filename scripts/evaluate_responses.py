@@ -60,11 +60,26 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
     eval_by_id: dict[str, dict[str, Any]] = {}
     for item in evaluation:
         identifier = item.get("id")
-        if not isinstance(identifier, str) or not identifier:
+        if not isinstance(identifier, str) or not identifier.strip():
             errors.append(f"evaluation item has invalid id: {identifier!r}")
-        elif identifier in eval_by_id:
+            continue
+        if identifier in eval_by_id:
             errors.append(f"duplicate evaluation id: {identifier}")
-        else:
+            continue
+
+        # Validate optional display fields before CSV serialization. Dataset records
+        # are external inputs here; malformed types must produce actionable errors,
+        # not TypeError from join() or surprising character-by-character tags.
+        item_valid = True
+        for field in ("language", "task_type", "prompt", "target"):
+            if field in item and not isinstance(item[field], str):
+                errors.append(f"evaluation field {field!r} must be a string for id: {identifier}")
+                item_valid = False
+        tags = item.get("tags", [])
+        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+            errors.append(f"evaluation field 'tags' must be a list of strings for id: {identifier}")
+            item_valid = False
+        if item_valid:
             eval_by_id[identifier] = item
 
     predictions_by_id: dict[str, dict[str, Any]] = {}
