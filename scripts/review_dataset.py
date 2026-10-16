@@ -178,7 +178,9 @@ def validate_log(input_path: str, output_path: str | None) -> int:
         review_date = (row.get("review_date") or "").strip()
         if review_date:
             try:
-                date.fromisoformat(review_date)
+                parsed_review_date = date.fromisoformat(review_date)
+                if parsed_review_date.isoformat() != review_date:
+                    raise ValueError("date must use the canonical ISO format")
             except ValueError:
                 errors.append(f"row {row_number}: review_date must use YYYY-MM-DD")
     if errors:
