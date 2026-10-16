@@ -69,9 +69,9 @@ class EvaluationHarnessTests(unittest.TestCase):
                 evaluation = root / "eval.jsonl"
                 predictions = root / "predictions.jsonl"
                 output = root / "review.csv"
-                evaluation.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+                evaluation.write_text(json.dumps(record) + "\n", encoding="utf-8")
                 predictions.write_text(
-                    json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\\n",
+                    json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\n",
                     encoding="utf-8",
                 )
                 self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 1)
