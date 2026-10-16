@@ -23,6 +23,8 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
                 row = next(csv.DictReader(handle))
             self.assertEqual(set(row), set(FIELDS))
             self.assertEqual(row["decision"], "")
+            self.assertEqual(row["evidence_reference"], "")
+            self.assertEqual(row["verification_result"], "")
             self.assertIn("draft", row["rationale"])
 
     def test_validate_accepts_completed_review_and_writes_summary(self):
@@ -32,17 +34,51 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
             with review.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=FIELDS)
                 writer.writeheader()
-                row = {field: "reviewed" for field in FIELDS}
+                row = {field: "" for field in FIELDS}
                 row.update({
                     "id": "review.one", "reviewer": "reviewer-1",
                     "review_date": "2026-10-14", "decision": "accept",
                     "answer_cardinality": "single", "expected_behavior": "answer",
+                    "interpretation": "The task asks for a deterministic implementation.",
+                    "constraint_checklist": "Inputs and empty cases checked.",
+                    "evidence_calibration": "No external claim; reasoning checked.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "manual_reasoning",
+                    "evidence_reference": "Reviewed prompt and target by hand.",
+                    "verification_result": "not_applicable",
                     "rationale": "Target is accurate and complete.",
                 })
                 writer.writerow(row)
             summary = root / "summary.md"
             self.assertEqual(validate_log(str(review), str(summary)), 0)
-            self.assertIn("Accept: 1", summary.read_text(encoding="utf-8"))
+            summary_text = summary.read_text(encoding="utf-8")
+            self.assertIn("Accept: 1", summary_text)
+            self.assertIn("does not fetch or authenticate", summary_text)
+
+    def test_fixture_result_requires_report_reference_and_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            review = root / "review.csv"
+            with review.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                row = {field: "" for field in FIELDS}
+                row.update({
+                    "id": "review.fixture", "reviewer": "reviewer-1",
+                    "review_date": "2026-10-14", "decision": "accept",
+                    "answer_cardinality": "single", "expected_behavior": "answer",
+                    "interpretation": "The fixture exercises the claimed behavior.",
+                    "constraint_checklist": "Scope and expected behavior checked.",
+                    "evidence_calibration": "Only this fixture suite is evidenced.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "fixed_fixture_report",
+                    "verification_result": "passed",
+                    "verification_commit": "",
+                    "evidence_reference": "",
+                    "rationale": "Reviewed independently.",
+                })
+                writer.writerow(row)
+            self.assertEqual(validate_log(str(review), None), 1)
 
     def test_validate_rejects_incomplete_or_invalid_reviews(self):
         with tempfile.TemporaryDirectory() as directory:
