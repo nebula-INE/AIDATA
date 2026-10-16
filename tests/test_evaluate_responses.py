@@ -190,6 +190,33 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(summarize(str(path), str(report)), 0)
             self.assertIn("1.5", report.read_text(encoding="utf-8"))
 
+    def test_summarize_reports_inter_rater_disagreement_per_axis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "reviewer", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for reviewer, meaning_score in (("reviewer-a", "2"), ("reviewer-b", "1"),
+                                                ("reviewer-c", "N/A")):
+                    row = {
+                        "id": "x", "model": "m", "model_version": "v1",
+                        "prompt_template_version": "system-v1", "decoding_settings": "{}",
+                        "run_date": "2026-10-17", "reviewer": reviewer,
+                        "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": meaning_score if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            report = Path(directory) / "report.md"
+            self.assertEqual(summarize(str(path), str(report)), 0)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("## Inter-rater disagreement", content)
+            self.assertIn("| m (v1) [prompt=system-v1] @ 2026-10-17 | meaning | 1 | 1 | 100.0% | 3 |", content)
+
     def test_summarize_reports_model_item_coverage_and_pairwise_overlap(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "scores.csv"
