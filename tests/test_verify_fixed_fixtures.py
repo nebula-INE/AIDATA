@@ -21,7 +21,7 @@ class FixedFixtureRunnerTests(unittest.TestCase):
 
     def test_command_is_fixed_and_does_not_accept_arbitrary_selectors(self):
         command = build_command("dataset-validator")
-        self.assertEqual(command[-2:], ["-p", "test_validate_dataset.py"])
+        self.assertEqual(command[5:7], ["tests", "-p"])\n        self.assertEqual(command[7], "test_validate_dataset.py")
         self.assertEqual(command[1:4], ["-m", "unittest", "discover"])
         with self.assertRaises(ValueError):
             build_command("../../some_untrusted_module")
