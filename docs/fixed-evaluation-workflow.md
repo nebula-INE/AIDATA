@@ -28,6 +28,25 @@ python scripts/evaluate_responses.py prepare \
   predictions.jsonl --output review.csv
 ```
 
+### Optional blinded review
+
+The regular worksheet includes model identity and is **not blind**. For a less-biased review, anonymize it before sharing with reviewers:
+
+```bash
+python scripts/blind_review.py blind review.csv \
+  --output review-blind.csv --manifest private-model-map.json
+```
+
+Share only `review-blind.csv`; keep `private-model-map.json` private until scoring and adjudication are complete. The manifest maps stable `model-001` labels to model/run metadata. Reviewers can score the blind CSV normally. Then restore metadata without overwriting the original:
+
+```bash
+python scripts/blind_review.py restore review-blind.csv \
+  --manifest private-model-map.json --output review-scored.csv
+python scripts/evaluate_responses.py summarize review-scored.csv --output report.md
+```
+
+The script removes direct model/checkpoint/prompt/decoding/run-date identifiers, while preserving item IDs, prompts, outputs, scores, notes, and reviewer fields. It groups identical model/run metadata under the same label. This is only **identity blinding**, not a guarantee of full blindness: output style, model-specific formatting, or recognizable answers may reveal identity. Protect the manifest because it contains the mapping. Do not edit blind labels by hand; restore rejects unknown labels.
+
 Reviewers should see the prompt and model output before consulting the reference answer where practical, then compare against the reviewed answer key. Keep raw model outputs immutable; score copies in the worksheet.
 
 ## 3. Human scoring rubric
@@ -45,10 +64,10 @@ Use `N/A` only when an axis genuinely does not apply. Leave a score blank while 
 
 ## 4. Summarize and compare
 
-After completing the CSV scores:
+After completing the CSV scores and restoring model metadata if using blind review:
 
 ```bash
-python scripts/evaluate_responses.py summarize review.csv --output report.md
+python scripts/evaluate_responses.py summarize review-scored.csv --output report.md
 ```
 
 To compare models, combine rows from separate runs into one scoring CSV while preserving a row per (model, item) and including run metadata columns. The report includes per-model, per-language, per-task, per-tag, and per-axis results, plus unique-item coverage and pairwise overlap among scored item IDs. Pairwise Jaccard overlap shows how much of each model/run's scored set is shared; low overlap means aggregate scores are not a fair direct comparison. The paired model comparison reports per-axis mean scores and win/tie/loss counts only for the same item/axis scored by both runs; multiple reviewers are averaged within an item for this descriptive comparison, preventing heavily reviewed items from counting repeatedly. Delta is model B minus model A. This is not a significance test. Review per-item regressions and category shifts; do not rely only on the overall mean. Coverage counts unique IDs rather than reviewer rows. It also reports per-axis inter-rater disagreement when multiple reviewers score the same model/run item: only numeric ratings are compared, and blank/N/A values are excluded. Treat disagreement as a signal for adjudication, not an automatic reason to average or discard a score.
@@ -63,3 +82,4 @@ Report item count, number of scored ratings, denominator, model/checkpoint, prom
 - Scoring is human-led, not an automatic LLM-as-judge score.
 - The current Japanese pilot's answer keys remain draft until independently reviewed.
 - Exact ID overlap checks do not detect paraphrase or semantic leakage.
+- Blinding reduces direct identity bias but cannot guarantee reviewers will not infer the model from its outputs.
