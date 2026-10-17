@@ -14,7 +14,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -29,6 +31,49 @@ AXES = (
 )
 SCORE_COLUMNS = tuple(f"score_{axis}" for axis in AXES)
 REQUIRED_PREDICTION_FIELDS = {"id", "prediction", "model"}
+
+
+def _resolved_path(path: str) -> Path:
+    return Path(path).expanduser().resolve()
+
+
+def _reject_output_collisions(output_path: str, input_paths: tuple[str, ...]) -> bool:
+    output = _resolved_path(output_path)
+    for input_path in input_paths:
+        if output == _resolved_path(input_path):
+            print(
+                f"output path must differ from input path: {output_path!r}",
+                file=sys.stderr,
+            )
+            return False
+    return True
+
+
+def _atomic_write_text(path: str, content: str, *, newline: str | None = None) -> None:
+    destination = _resolved_path(path)
+    temporary_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8-sig" if destination.suffix.lower() == ".csv" else "utf-8",
+            newline=newline,
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = handle.name
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
 
 
 def read_jsonl(path: str) -> tuple[list[dict[str, Any]], list[str]]:
@@ -54,6 +99,8 @@ def read_jsonl(path: str) -> tuple[list[dict[str, Any]], list[str]]:
 
 
 def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
+    if not _reject_output_collisions(output_path, (eval_path, predictions_path)):
+        return 1
     evaluation, errors = read_jsonl(eval_path)
     predictions, prediction_errors = read_jsonl(predictions_path)
     errors.extend(prediction_errors)
@@ -118,28 +165,37 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
         "prompt_template_version", "decoding_settings", "run_date", "reviewer",
         "prompt", "meaning_reference", "prediction", *SCORE_COLUMNS, "notes",
     ]
-    with Path(output_path).open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
-        writer.writeheader()
-        for identifier, item in eval_by_id.items():
-            pred = predictions_by_id.get(identifier, {})
-            writer.writerow({
-                "id": identifier,
-                "language": item.get("language", ""),
-                "task_type": item.get("task_type", ""),
-                "tags": "|".join(item.get("tags", [])),
-                "model": pred.get("model", ""),
-                "model_version": pred.get("model_version", ""),
-                "prompt_template_version": pred.get("prompt_template_version", ""),
-                "decoding_settings": json.dumps(pred.get("decoding_settings", {}), ensure_ascii=False, sort_keys=True),
-                "run_date": pred.get("run_date", ""),
-                "reviewer": "",
-                "prompt": item.get("prompt", ""),
-                "meaning_reference": item.get("target", ""),
-                "prediction": pred.get("prediction", ""),
-                **{column: "" for column in SCORE_COLUMNS},
-                "notes": "MISSING PREDICTION" if identifier in missing_predictions else "",
-            })
+    # Build the worksheet in memory, then replace the destination atomically. This
+    # prevents a partial CSV from being mistaken for a complete review artifact.
+    from io import StringIO
+
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=columns)
+    writer.writeheader()
+    for identifier, item in eval_by_id.items():
+        pred = predictions_by_id.get(identifier, {})
+        writer.writerow({
+            "id": identifier,
+            "language": item.get("language", ""),
+            "task_type": item.get("task_type", ""),
+            "tags": "|".join(item.get("tags", [])),
+            "model": pred.get("model", ""),
+            "model_version": pred.get("model_version", ""),
+            "prompt_template_version": pred.get("prompt_template_version", ""),
+            "decoding_settings": json.dumps(pred.get("decoding_settings", {}), ensure_ascii=False, sort_keys=True),
+            "run_date": pred.get("run_date", ""),
+            "reviewer": "",
+            "prompt": item.get("prompt", ""),
+            "meaning_reference": item.get("target", ""),
+            "prediction": pred.get("prediction", ""),
+            **{column: "" for column in SCORE_COLUMNS},
+            "notes": "MISSING PREDICTION" if identifier in missing_predictions else "",
+        })
+    try:
+        _atomic_write_text(output_path, buffer.getvalue(), newline="")
+    except OSError as exc:
+        print(f"could not write review worksheet {output_path!r}: {exc}", file=sys.stderr)
+        return 1
     print(f"Prepared {len(eval_by_id)} evaluation rows; {len(missing_predictions)} predictions missing.")
     print("Review answer keys and rubric before scoring; these synthetic draft keys are not independently validated.")
     return 0
@@ -159,6 +215,8 @@ def parse_score(value: str) -> float | None:
 
 
 def summarize(input_path: str, output_path: str | None) -> int:
+    if output_path and not _reject_output_collisions(output_path, (input_path,)):
+        return 1
     try:
         with Path(input_path).open(encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle, strict=True)
@@ -456,7 +514,11 @@ def summarize(input_path: str, output_path: str | None) -> int:
                    "- A high aggregate score can hide failures in a language, task family, or safety-critical constraint."])
     output = "\n".join(report) + "\n"
     if output_path:
-        Path(output_path).write_text(output, encoding="utf-8")
+        try:
+            _atomic_write_text(output_path, output)
+        except OSError as exc:
+            print(f"could not write evaluation report {output_path!r}: {exc}", file=sys.stderr)
+            return 1
     else:
         print(output)
     return 0
