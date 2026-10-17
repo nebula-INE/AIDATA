@@ -15,7 +15,7 @@ GENERIC_TESTS = (
     "synthetic record as verified",
     "check factual correctness",
 )
-LITERAL_NEWLINE = re.compile(r"\\\\n")
+LITERAL_NEWLINE = re.compile(r"\\n")
 
 
 def inspect(paths: list[str]) -> dict[str, Any]:
