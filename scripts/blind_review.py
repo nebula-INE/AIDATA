@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,35 @@ IDENTITY_FIELDS = (
     "decoding_settings", "run_date",
 )
 MANIFEST_VERSION = 1
+
+
+def validate_distinct_paths(**paths: str) -> None:
+    """Reject path aliases before opening files, to protect source/private data."""
+    resolved: dict[Path, str] = {}
+    for role, raw_path in paths.items():
+        path = Path(raw_path).expanduser().resolve()
+        previous = resolved.get(path)
+        if previous is not None:
+            raise ValueError(f"{role} path must differ from {previous} path")
+        resolved[path] = role
+
+
+def atomic_write_text(path: str, content: str) -> None:
+    destination = Path(path)
+    temporary_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary_name = handle.name
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, destination)
+    finally:
+        if temporary_name and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def read_csv(path: str) -> tuple[list[str], list[dict[str, str]]]:
@@ -34,14 +65,28 @@ def read_csv(path: str) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def write_csv(path: str, fields: list[str], rows: list[dict[str, str]]) -> None:
-    with Path(path).open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="raise")
-        writer.writeheader()
-        writer.writerows(rows)
+    destination = Path(path)
+    temporary_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8-sig", newline="", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary_name = handle.name
+            writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="raise")
+            writer.writeheader()
+            writer.writerows(rows)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, destination)
+    finally:
+        if temporary_name and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def blind(input_path: str, output_path: str, manifest_path: str) -> int:
     try:
+        validate_distinct_paths(input=input_path, output=output_path, manifest=manifest_path)
         fields, rows = read_csv(input_path)
         if "model" not in fields:
             raise ValueError("input CSV must include a 'model' column")
@@ -68,10 +113,10 @@ def blind(input_path: str, output_path: str, manifest_path: str) -> int:
                 item[field] = ""
             blind_rows.append(item)
         write_csv(output_path, fields, blind_rows)
-        Path(manifest_path).write_text(
+        atomic_write_text(
+            manifest_path,
             json.dumps({"manifest_version": MANIFEST_VERSION, "models": mapping},
                        ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
         )
     except (OSError, csv.Error, ValueError, json.JSONDecodeError) as exc:
         print(f"blind review failed: {exc}", file=sys.stderr)
@@ -83,6 +128,7 @@ def blind(input_path: str, output_path: str, manifest_path: str) -> int:
 
 def restore(input_path: str, manifest_path: str, output_path: str) -> int:
     try:
+        validate_distinct_paths(input=input_path, manifest=manifest_path, output=output_path)
         fields, rows = read_csv(input_path)
         if "model" not in fields:
             raise ValueError("scored CSV must include a 'model' column")
