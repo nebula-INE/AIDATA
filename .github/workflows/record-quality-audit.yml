@@ -1,0 +1,57 @@
+name: Record quality audit
+
+on:
+  pull_request:
+    paths:
+      - "data/seeds/**"
+      - "scripts/audit_record_quality.py"
+      - "tests/test_audit_record_quality.py"
+      - ".github/workflows/record-quality-audit.yml"
+  push:
+    branches:
+      - main
+      - "data/coding-japanese-expansion-2026-10"
+    paths:
+      - "data/seeds/**"
+      - "scripts/audit_record_quality.py"
+      - "tests/test_audit_record_quality.py"
+      - ".github/workflows/record-quality-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Run quality-audit unit tests
+        run: python -m unittest tests.test_audit_record_quality -v
+      - name: Audit all training seed JSONL files
+        run: python scripts/audit_record_quality.py --json data/seeds/*.jsonl > record-quality-audit.json
+      - name: Summarize findings
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          with open("record-quality-audit.json", encoding="utf-8") as stream:
+              report = json.load(stream)
+          counts = Counter(item["kind"] for item in report["findings"])
+          print(f"Records scanned: {report['records_scanned']}")
+          print(f"Total findings: {len(report['findings'])}")
+          for kind, count in sorted(counts.items()):
+              print(f"- {kind}: {count}")
+          PY
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: record-quality-audit
+          path: record-quality-audit.json
+          if-no-files-found: error
+          retention-days: 14
