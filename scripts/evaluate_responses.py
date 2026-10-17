@@ -397,6 +397,53 @@ def summarize(input_path: str, output_path: str | None) -> int:
                 f"{stats['disagreements']} | {rate:.1f}% | {stats['rating_pairs']} |"
             )
 
+    # Paired comparisons use only item/axis scores available for both model runs.
+    # When multiple reviewers score one item, average their numeric ratings first so
+    # reviewer count does not make that item count more than once in the comparison.
+    item_axis_scores: dict[str, dict[tuple[str, str], list[float]]] = defaultdict(lambda: defaultdict(list))
+    for name, group in by_model.items():
+        for row in group:
+            for axis in AXES:
+                score = row["_scores"][f"score_{axis}"]
+                if score is not None:
+                    item_axis_scores[name][(row["id"], axis)].append(score)
+
+    item_axis_means: dict[str, dict[tuple[str, str], float]] = {
+        name: {key: sum(values) / len(values) for key, values in scores.items()}
+        for name, scores in item_axis_scores.items()
+    }
+    report.extend([
+        "", "## Paired model comparison", "",
+        "For each pair of model/run groups, compares numeric scores only on the same item and axis scored for both. Multiple reviewers are averaged within an item before comparison. Delta is B minus A; positive favors B. This is descriptive, not a significance test.",
+        "", "| Model A | Model B | Axis | Shared scored items | Mean A | Mean B | Delta (B−A) | A wins | Ties | B wins |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    if len(model_names) < 2:
+        report.append("| — | — | — | 0 | — | — | — | — | — | Need at least two model/run groups |")
+    else:
+        for index, name_a in enumerate(model_names):
+            for name_b in model_names[index + 1:]:
+                scores_a, scores_b = item_axis_means[name_a], item_axis_means[name_b]
+                for axis in AXES:
+                    shared = sorted(
+                        identifier for identifier, shared_axis in scores_a
+                        if shared_axis == axis and (identifier, axis) in scores_b
+                    )
+                    if not shared:
+                        continue
+                    values_a = [scores_a[(identifier, axis)] for identifier in shared]
+                    values_b = [scores_b[(identifier, axis)] for identifier in shared]
+                    wins_a = sum(a > b for a, b in zip(values_a, values_b))
+                    ties = sum(a == b for a, b in zip(values_a, values_b))
+                    wins_b = sum(a < b for a, b in zip(values_a, values_b))
+                    mean_a = sum(values_a) / len(values_a)
+                    mean_b = sum(values_b) / len(values_b)
+                    report.append(
+                        f"| {name_a} | {name_b} | {axis} | {len(shared)} | "
+                        f"{mean_a:.3f} | {mean_b:.3f} | {mean_b - mean_a:+.3f} | "
+                        f"{wins_a} | {ties} | {wins_b} |"
+                    )
+
     report.extend(["", "## Per-axis results", "", "| Model | Axis | Scored | Mean (0–2) | Normalized score |", "|---|---|---:|---:|---:|"])
     for name, group in sorted(by_model.items()):
         stats = group_summary(group)
