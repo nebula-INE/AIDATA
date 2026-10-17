@@ -7,9 +7,14 @@ on:
       - "schemas/**"
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
+      - "scripts/check_eval_leakage.py"
       - "scripts/report_dataset_coverage.py"
       - "scripts/review_dataset.py"
+      - "scripts/prioritize_review_queue.py"
+      - "scripts/report_review_evidence.py"
       - "scripts/evaluate_responses.py"
+      - "scripts/blind_review.py"
+      - "scripts/verify_fixed_fixtures.py"
       - "tests/**"
       - "docs/**"
       - ".github/workflows/validate-data.yml"
@@ -19,10 +24,16 @@ on:
       - "schemas/**"
       - "scripts/validate_dataset.py"
       - "scripts/audit_dataset.py"
+      - "scripts/check_eval_leakage.py"
       - "scripts/report_dataset_coverage.py"
       - "scripts/review_dataset.py"
+      - "scripts/prioritize_review_queue.py"
+      - "scripts/report_review_evidence.py"
       - "scripts/evaluate_responses.py"
+      - "scripts/blind_review.py"
+      - "scripts/verify_fixed_fixtures.py"
       - "tests/**"
+      - "docs/**"
       - ".github/workflows/validate-data.yml"
   workflow_dispatch:
 
@@ -43,6 +54,8 @@ jobs:
         run: python scripts/validate_dataset.py data/seeds/*.jsonl data/eval/*.jsonl
       - name: Audit duplicate prompts
         run: python scripts/audit_dataset.py data/seeds/*.jsonl
+      - name: Check cross-split prompt leakage
+        run: python scripts/check_eval_leakage.py --train data/seeds/*.jsonl --eval data/eval/*.jsonl
       - name: Report dataset coverage and check split ID leakage
         run: python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
       - name: Check review workflow CLI
