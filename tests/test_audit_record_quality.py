@@ -33,6 +33,13 @@ class RecordQualityAuditTests(unittest.TestCase):
         self.assertIn("duplicate_id", kinds)
         self.assertIn("exact_prompt_duplicate", kinds)
 
+    def test_detects_literal_backslash_n_in_prompt(self):
+        report = self.run_audit([
+            {"id": "escaped", "prompt": "first\\\\nsecond",
+             "target": "Answer", "tests": ["assert answer"]},
+        ])
+        self.assertIn("literal_backslash_n_in_prompt", {item["kind"] for item in report["findings"]})
+
     def test_detects_missing_target_and_review_claim_without_reviewer(self):
         report = self.run_audit([
             {"id": "a", "prompt": "Prompt", "target": "", "tests": ["assert True"],
