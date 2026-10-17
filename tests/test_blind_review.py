@@ -58,6 +58,32 @@ class BlindReviewTests(unittest.TestCase):
             self.assertEqual(result[0]["score_meaning"], "0")
             self.assertEqual(result[0]["notes"], "good")
 
+    def test_blind_rejects_path_collisions_without_overwriting_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.csv"
+            source.write_text("id,model\nx,provider-a\n", encoding="utf-8")
+            original = source.read_text(encoding="utf-8")
+            manifest = root / "manifest.json"
+            self.assertEqual(blind(str(source), str(source), str(manifest)), 1)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+            self.assertFalse(manifest.exists())
+
+    def test_restore_rejects_path_collisions_without_overwriting_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "blind.csv"
+            source.write_text("id,model\nx,model-001\n", encoding="utf-8")
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({
+                "manifest_version": 1,
+                "models": {"model-001": {"model": "provider-a", "model_version": "v1",
+                    "prompt_template_version": "", "decoding_settings": "", "run_date": ""}},
+            }), encoding="utf-8")
+            original = manifest.read_text(encoding="utf-8")
+            self.assertEqual(restore(str(source), str(manifest), str(manifest)), 1)
+            self.assertEqual(manifest.read_text(encoding="utf-8"), original)
+
     def test_restore_rejects_unknown_blind_label(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
