@@ -38,6 +38,8 @@ See [`docs/language-understanding-foundation.md`](docs/language-understanding-fo
 
 For Japanese-specific coverage, see [`docs/japanese-language-data.md`](docs/japanese-language-data.md) and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md). The contextual vocabulary and lexical-semantics expansion is in [`data/seeds/vocabulary_semantics_expansion_2026_10.jsonl`](data/seeds/vocabulary_semantics_expansion_2026_10.jsonl); it covers near-synonyms, polysemy, idioms, register, Japanese particles/scope, requirement strength, epistemic language, and multilingual technical terms. These examples remain drafts until reviewed.
 
+For the current Japanese software-engineering scale-up batches, see [`data/seeds/japanese_software_engineering_scaleup_2026_10.jsonl`](data/seeds/japanese_software_engineering_scaleup_2026_10.jsonl) (107 draft examples) and [`data/seeds/japanese_practical_engineering_scaleup_2026_10.jsonl`](data/seeds/japanese_practical_engineering_scaleup_2026_10.jsonl) (184 draft scenarios). Both are synthetic, not independently human-reviewed, and must remain separate from held-out evaluation data until reviewed. Raw record count is not a measure of model improvement; use the model-aligned evaluation plan and human-review gates before promotion.
+
 ## Local checks
 
 Run the structural validator, advisory duplicate audit, and coverage report before proposing dataset changes:
