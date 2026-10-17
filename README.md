@@ -42,16 +42,17 @@ For the current Japanese software-engineering scale-up batches, see [`data/seeds
 
 ## Local checks
 
-Run the structural validator, advisory duplicate audit, and coverage report before proposing dataset changes:
+Run the structural validator, advisory duplicate audit, record-level content-quality audit, and coverage report before proposing dataset changes:
 
 ```bash
 python -m unittest discover -s tests -v
 python scripts/validate_dataset.py data/seeds/*.jsonl
 python scripts/audit_dataset.py data/seeds/*.jsonl
+python scripts/audit_record_quality.py data/seeds/*.jsonl
 python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
 ```
 
-The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). Structured review logging is documented in [`docs/human-review-log-workflow.md`](docs/human-review-log-workflow.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
+The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). The record-level content-quality audit surfaces duplicate IDs/prompts, missing checks, generic test placeholders, literal `\\n` prompt artifacts, and unsupported reviewed status; see [`docs/record-quality-audit.md`](docs/record-quality-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). Structured review logging is documented in [`docs/human-review-log-workflow.md`](docs/human-review-log-workflow.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
 
 ## Dataset scale and model-aligned evaluation
 
