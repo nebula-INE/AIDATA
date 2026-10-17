@@ -370,7 +370,7 @@ class EvaluationHarnessTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["prediction"], "answer")
-            self.assertEqual([p.name for p in root.iterdir()], ["eval.jsonl", "predictions.jsonl", "review.csv"])
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ["eval.jsonl", "predictions.jsonl", "review.csv"])
 
 
 if __name__ == "__main__":
