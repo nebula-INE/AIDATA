@@ -277,5 +277,42 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(summarize(str(path), None), 1)
 
 
+    def test_summarize_reports_paired_per_item_model_comparison(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = [
+                "id", "model", "model_version", "prompt_template_version",
+                "decoding_settings", "run_date", "reviewer", "language", "task_type", "tags",
+                *[f"score_{a}" for a in AXES],
+            ]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for identifier, model, score in (
+                    ("shared", "model-a", "2"),
+                    ("shared", "model-b", "1"),
+                    ("only-a", "model-a", "2"),
+                    ("only-b", "model-b", "0"),
+                ):
+                    row = {
+                        "id": identifier, "model": model, "model_version": "v1",
+                        "prompt_template_version": "system-v1", "decoding_settings": "{}",
+                        "run_date": "2026-10-17", "reviewer": "reviewer-a",
+                        "language": "ja", "task_type": "reasoning", "tags": "",
+                    }
+                    row.update({f"score_{a}": score if a == "meaning" else "N/A" for a in AXES})
+                    writer.writerow(row)
+            report = Path(directory) / "report.md"
+            self.assertEqual(summarize(str(path), str(report)), 0)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("## Paired model comparison", content)
+            self.assertIn(
+                "| model-a (v1) [prompt=system-v1] @ 2026-10-17 | "
+                "model-b (v1) [prompt=system-v1] @ 2026-10-17 | meaning | 1 | "
+                "2.000 | 1.000 | -1.000 | 1 | 0 | 0 |",
+                content,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
