@@ -314,5 +314,64 @@ class EvaluationHarnessTests(unittest.TestCase):
             )
 
 
+    def test_prepare_rejects_output_collision_with_evaluation_and_preserves_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evaluation = root / "eval.jsonl"
+            predictions = root / "predictions.jsonl"
+            original = json.dumps({"id": "eval.one", "target": "answer"}) + "\n"
+            evaluation.write_text(original, encoding="utf-8")
+            predictions.write_text(
+                json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(prepare(str(evaluation), str(predictions), str(evaluation)), 1)
+            self.assertEqual(evaluation.read_text(encoding="utf-8"), original)
+
+    def test_prepare_rejects_output_collision_with_predictions_and_preserves_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evaluation = root / "eval.jsonl"
+            predictions = root / "predictions.jsonl"
+            evaluation.write_text(json.dumps({"id": "eval.one", "target": "answer"}) + "\n", encoding="utf-8")
+            original = json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\n"
+            predictions.write_text(original, encoding="utf-8")
+            self.assertEqual(prepare(str(evaluation), str(predictions), str(predictions)), 1)
+            self.assertEqual(predictions.read_text(encoding="utf-8"), original)
+
+    def test_summarize_rejects_output_collision_with_scores_and_preserves_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scores.csv"
+            fields = ["id", "model", "language", "task_type", "tags", *[f"score_{a}" for a in AXES]]
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                row = {"id": "x", "model": "m", "language": "ja", "task_type": "reasoning", "tags": ""}
+                row.update({f"score_{a}": "2" if a == "meaning" else "N/A" for a in AXES})
+                writer.writerow(row)
+            original = path.read_bytes()
+            self.assertEqual(summarize(str(path), str(path)), 1)
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_prepare_atomically_replaces_existing_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evaluation = root / "eval.jsonl"
+            predictions = root / "predictions.jsonl"
+            output = root / "review.csv"
+            evaluation.write_text(json.dumps({"id": "eval.one", "target": "answer"}) + "\n", encoding="utf-8")
+            predictions.write_text(
+                json.dumps({"id": "eval.one", "prediction": "answer", "model": "m"}) + "\n",
+                encoding="utf-8",
+            )
+            output.write_text("previous incomplete file", encoding="utf-8")
+            self.assertEqual(prepare(str(evaluation), str(predictions), str(output)), 0)
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["prediction"], "answer")
+            self.assertEqual([p.name for p in root.iterdir()], ["eval.jsonl", "predictions.jsonl", "review.csv"])
+
+
 if __name__ == "__main__":
     unittest.main()
