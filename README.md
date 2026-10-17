@@ -56,7 +56,7 @@ The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](d
 
 ## Dataset scale and model-aligned evaluation
 
-See [`docs/dataset-scale-and-model-aligned-evaluation.md`](docs/dataset-scale-and-model-aligned-evaluation.md) for the scale-up plan and difficulty tiers. A small-model-friendly Japanese baseline pilot is in [`data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl`](data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl); it remains synthetic and draft, and must be independently reviewed before benchmark use.
+See [`docs/dataset-scale-and-model-aligned-evaluation.md`](docs/dataset-scale-and-model-aligned-evaluation.md) for the scale-up plan and difficulty tiers. The quality-gated path toward approximately 2,000 training records is specified in [`docs/japanese-dataset-2000-record-scaleup.md`](docs/japanese-dataset-2000-record-scaleup.md). A small-model-friendly Japanese baseline pilot is in [`data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl`](data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl); it remains synthetic and draft, and must be independently reviewed before benchmark use.
 
 ## Starter status
 
