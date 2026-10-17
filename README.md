@@ -51,6 +51,10 @@ python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
 
 The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). Structured review logging is documented in [`docs/human-review-log-workflow.md`](docs/human-review-log-workflow.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
 
+## Dataset scale and model-aligned evaluation
+
+See [`docs/dataset-scale-and-model-aligned-evaluation.md`](docs/dataset-scale-and-model-aligned-evaluation.md) for the scale-up plan and difficulty tiers. A small-model-friendly Japanese baseline pilot is in [`data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl`](data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl); it remains synthetic and draft, and must be independently reviewed before benchmark use.
+
 ## Starter status
 
 This repository starts with a small illustrative seed set and validation scaffolding. It is not yet a production-scale training corpus. Expand it through licensed sources, executable tests, review, and documented evaluation before model training.
