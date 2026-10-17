@@ -35,7 +35,7 @@ class RecordQualityAuditTests(unittest.TestCase):
 
     def test_detects_literal_backslash_n_in_prompt(self):
         report = self.run_audit([
-            {"id": "escaped", "prompt": "first\\\\nsecond",
+            {"id": "escaped", "prompt": r"first\nsecond",
              "target": "Answer", "tests": ["assert answer"]},
         ])
         self.assertIn("literal_backslash_n_in_prompt", {item["kind"] for item in report["findings"]})
