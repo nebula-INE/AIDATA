@@ -38,19 +38,34 @@ See [`docs/language-understanding-foundation.md`](docs/language-understanding-fo
 
 For Japanese-specific coverage, see [`docs/japanese-language-data.md`](docs/japanese-language-data.md) and [`docs/axral-japanese-review-and-evaluation.md`](docs/axral-japanese-review-and-evaluation.md). The contextual vocabulary and lexical-semantics expansion is in [`data/seeds/vocabulary_semantics_expansion_2026_10.jsonl`](data/seeds/vocabulary_semantics_expansion_2026_10.jsonl); it covers near-synonyms, polysemy, idioms, register, Japanese particles/scope, requirement strength, epistemic language, and multilingual technical terms. These examples remain drafts until reviewed.
 
+For the current Japanese software-engineering scale-up batches, see [`data/seeds/japanese_software_engineering_scaleup_2026_10.jsonl`](data/seeds/japanese_software_engineering_scaleup_2026_10.jsonl) (107 draft examples) and [`data/seeds/japanese_practical_engineering_scaleup_2026_10.jsonl`](data/seeds/japanese_practical_engineering_scaleup_2026_10.jsonl) (184 draft scenarios). Both are synthetic, not independently human-reviewed, and must remain separate from held-out evaluation data until reviewed. Raw record count is not a measure of model improvement; use the model-aligned evaluation plan and human-review gates before promotion.
+
 ## Local checks
 
-Run the structural validator, advisory duplicate audit, and coverage report before proposing dataset changes:
+Run the structural validator, advisory duplicate audit, record-level content-quality audit, and coverage report before proposing dataset changes:
 
 ```bash
 python -m unittest discover -s tests -v
 python scripts/validate_dataset.py data/seeds/*.jsonl
 python scripts/audit_dataset.py data/seeds/*.jsonl
+python scripts/audit_record_quality.py data/seeds/*.jsonl
 python scripts/report_dataset_coverage.py data/seeds/*.jsonl data/eval/*.jsonl
 ```
 
-The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). Structured review logging is documented in [`docs/human-review-log-workflow.md`](docs/human-review-log-workflow.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
+The duplicate audit is heuristic and advisory; see [`docs/duplicate-audit.md`](docs/duplicate-audit.md). The record-level content-quality audit surfaces duplicate IDs/prompts, missing checks, generic test placeholders, literal `\\n` prompt artifacts, and unsupported reviewed status; see [`docs/record-quality-audit.md`](docs/record-quality-audit.md). Coverage and draft-review queue guidance is in [`docs/dataset-coverage-and-review.md`](docs/dataset-coverage-and-review.md). Structured review logging is documented in [`docs/human-review-log-workflow.md`](docs/human-review-log-workflow.md). The fixed model-evaluation worksheet and report workflow is documented in [`docs/fixed-evaluation-workflow.md`](docs/fixed-evaluation-workflow.md). A recorded CI snapshot is available in [`docs/audit-results-2026-10-13.md`](docs/audit-results-2026-10-13.md).
+
+## Dataset scale and model-aligned evaluation
+
+See [`docs/dataset-scale-and-model-aligned-evaluation.md`](docs/dataset-scale-and-model-aligned-evaluation.md) for the scale-up plan and difficulty tiers. The quality-gated path toward approximately 2,000 training records is specified in [`docs/japanese-dataset-2000-record-scaleup.md`](docs/japanese-dataset-2000-record-scaleup.md). A small-model-friendly Japanese baseline pilot is in [`data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl`](data/eval/japanese_small_model_baseline_pilot_2026_10.jsonl); it remains synthetic and draft, and must be independently reviewed before benchmark use.
 
 ## Starter status
 
 This repository starts with a small illustrative seed set and validation scaffolding. It is not yet a production-scale training corpus. Expand it through licensed sources, executable tests, review, and documented evaluation before model training.
+
+## Safe code and research verification
+
+See [`docs/safe-code-and-research-verification.md`](docs/safe-code-and-research-verification.md) for the trust model, status requirements, controlled code-verification workflow, and source-grounded research evaluation criteria. Dataset code is untrusted input and must not be executed directly by the validation pipeline.
+
+## Fixed-fixture verification and review queue
+
+See [`docs/fixed-fixture-verification-runner.md`](docs/fixed-fixture-verification-runner.md) for the allowlisted test runner, review evidence coverage report, and prioritized human-review queue. The queue ranks records needing attention but never edits data or promotes `quality.status` automatically.

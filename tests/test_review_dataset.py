@@ -23,7 +23,35 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
                 row = next(csv.DictReader(handle))
             self.assertEqual(set(row), set(FIELDS))
             self.assertEqual(row["decision"], "")
+            self.assertEqual(row["evidence_reference"], "")
+            self.assertEqual(row["verification_result"], "")
             self.assertIn("draft", row["rationale"])
+
+
+    def test_export_excludes_eval_records_unless_explicitly_requested(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "data.jsonl"
+            default_output = root / "review.csv"
+            eval_output = root / "review-with-eval.csv"
+            records = [
+                {"id": "review.train", "split": "train", "prompt": "train prompt", "target": "train target"},
+                {"id": "review.eval", "split": "eval", "prompt": "eval prompt", "target": "eval target"},
+            ]
+            source.write_text(
+                "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(export_queue([str(source)], str(default_output)), 0)
+            with default_output.open(encoding="utf-8-sig", newline="") as handle:
+                default_rows = list(csv.DictReader(handle))
+            self.assertEqual([row["id"] for row in default_rows], ["review.train"])
+
+            self.assertEqual(export_queue([str(source)], str(eval_output), include_eval=True), 0)
+            with eval_output.open(encoding="utf-8-sig", newline="") as handle:
+                eval_rows = list(csv.DictReader(handle))
+            self.assertEqual({row["id"] for row in eval_rows}, {"review.train", "review.eval"})
 
     def test_validate_accepts_completed_review_and_writes_summary(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -32,17 +60,51 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
             with review.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=FIELDS)
                 writer.writeheader()
-                row = {field: "reviewed" for field in FIELDS}
+                row = {field: "" for field in FIELDS}
                 row.update({
                     "id": "review.one", "reviewer": "reviewer-1",
                     "review_date": "2026-10-14", "decision": "accept",
                     "answer_cardinality": "single", "expected_behavior": "answer",
+                    "interpretation": "The task asks for a deterministic implementation.",
+                    "constraint_checklist": "Inputs and empty cases checked.",
+                    "evidence_calibration": "No external claim; reasoning checked.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "manual_reasoning",
+                    "evidence_reference": "Reviewed prompt and target by hand.",
+                    "verification_result": "not_applicable",
                     "rationale": "Target is accurate and complete.",
                 })
                 writer.writerow(row)
             summary = root / "summary.md"
             self.assertEqual(validate_log(str(review), str(summary)), 0)
-            self.assertIn("Accept: 1", summary.read_text(encoding="utf-8"))
+            summary_text = summary.read_text(encoding="utf-8")
+            self.assertIn("Accept: 1", summary_text)
+            self.assertIn("does not fetch or authenticate", summary_text)
+
+    def test_fixture_result_requires_report_reference_and_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            review = root / "review.csv"
+            with review.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                row = {field: "" for field in FIELDS}
+                row.update({
+                    "id": "review.fixture", "reviewer": "reviewer-1",
+                    "review_date": "2026-10-14", "decision": "accept",
+                    "answer_cardinality": "single", "expected_behavior": "answer",
+                    "interpretation": "The fixture exercises the claimed behavior.",
+                    "constraint_checklist": "Scope and expected behavior checked.",
+                    "evidence_calibration": "Only this fixture suite is evidenced.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "fixed_fixture_report",
+                    "verification_result": "passed",
+                    "verification_commit": "",
+                    "evidence_reference": "",
+                    "rationale": "Reviewed independently.",
+                })
+                writer.writerow(row)
+            self.assertEqual(validate_log(str(review), None), 1)
 
     def test_validate_rejects_incomplete_or_invalid_reviews(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,6 +115,34 @@ class DatasetReviewWorkflowTests(unittest.TestCase):
                 writer.writeheader()
                 row = {field: "" for field in FIELDS}
                 row.update({"id": "review.one", "decision": "maybe", "review_date": "not-a-date"})
+                writer.writerow(row)
+            self.assertEqual(validate_log(str(review), None), 1)
+
+
+    def test_validate_rejects_noncanonical_iso_review_date(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            review = root / "review.csv"
+            with review.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                row = {field: "" for field in FIELDS}
+                row.update({
+                    "id": "review.date-format",
+                    "reviewer": "reviewer-1",
+                    "review_date": "20261014",
+                    "decision": "accept",
+                    "answer_cardinality": "single",
+                    "expected_behavior": "answer",
+                    "interpretation": "The request has a deterministic interpretation.",
+                    "constraint_checklist": "Scope and edge cases checked.",
+                    "evidence_calibration": "Claims limited to the inspected evidence.",
+                    "language_quality": "Natural Japanese.",
+                    "evidence_kind": "manual_reasoning",
+                    "evidence_reference": "Reviewed prompt and target by hand.",
+                    "verification_result": "not_applicable",
+                    "rationale": "Reviewed independently.",
+                })
                 writer.writerow(row)
             self.assertEqual(validate_log(str(review), None), 1)
 

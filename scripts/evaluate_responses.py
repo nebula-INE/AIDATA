@@ -14,7 +14,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -29,6 +31,49 @@ AXES = (
 )
 SCORE_COLUMNS = tuple(f"score_{axis}" for axis in AXES)
 REQUIRED_PREDICTION_FIELDS = {"id", "prediction", "model"}
+
+
+def _resolved_path(path: str) -> Path:
+    return Path(path).expanduser().resolve()
+
+
+def _reject_output_collisions(output_path: str, input_paths: tuple[str, ...]) -> bool:
+    output = _resolved_path(output_path)
+    for input_path in input_paths:
+        if output == _resolved_path(input_path):
+            print(
+                f"output path must differ from input path: {output_path!r}",
+                file=sys.stderr,
+            )
+            return False
+    return True
+
+
+def _atomic_write_text(path: str, content: str, *, newline: str | None = None) -> None:
+    destination = _resolved_path(path)
+    temporary_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8-sig" if destination.suffix.lower() == ".csv" else "utf-8",
+            newline=newline,
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = handle.name
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
 
 
 def read_jsonl(path: str) -> tuple[list[dict[str, Any]], list[str]]:
@@ -54,17 +99,34 @@ def read_jsonl(path: str) -> tuple[list[dict[str, Any]], list[str]]:
 
 
 def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
+    if not _reject_output_collisions(output_path, (eval_path, predictions_path)):
+        return 1
     evaluation, errors = read_jsonl(eval_path)
     predictions, prediction_errors = read_jsonl(predictions_path)
     errors.extend(prediction_errors)
     eval_by_id: dict[str, dict[str, Any]] = {}
     for item in evaluation:
         identifier = item.get("id")
-        if not isinstance(identifier, str) or not identifier:
+        if not isinstance(identifier, str) or not identifier.strip():
             errors.append(f"evaluation item has invalid id: {identifier!r}")
-        elif identifier in eval_by_id:
+            continue
+        if identifier in eval_by_id:
             errors.append(f"duplicate evaluation id: {identifier}")
-        else:
+            continue
+
+        # Validate optional display fields before CSV serialization. Dataset records
+        # are external inputs here; malformed types must produce actionable errors,
+        # not TypeError from join() or surprising character-by-character tags.
+        item_valid = True
+        for field in ("language", "task_type", "prompt", "target"):
+            if field in item and not isinstance(item[field], str):
+                errors.append(f"evaluation field {field!r} must be a string for id: {identifier}")
+                item_valid = False
+        tags = item.get("tags", [])
+        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+            errors.append(f"evaluation field 'tags' must be a list of strings for id: {identifier}")
+            item_valid = False
+        if item_valid:
             eval_by_id[identifier] = item
 
     predictions_by_id: dict[str, dict[str, Any]] = {}
@@ -74,6 +136,15 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
             errors.append(f"prediction missing fields {sorted(missing)}: {item.get('id', '<no id>')}")
             continue
         identifier = item["id"]
+        if not isinstance(identifier, str) or not identifier:
+            errors.append(f"prediction has invalid id: {identifier!r}")
+            continue
+        if not isinstance(item["prediction"], str):
+            errors.append(f"prediction must be a string for id: {identifier}")
+            continue
+        if not isinstance(item["model"], str) or not item["model"].strip():
+            errors.append(f"model must be a non-empty string for id: {identifier}")
+            continue
         if identifier not in eval_by_id:
             errors.append(f"prediction id not in evaluation set: {identifier}")
         if identifier in predictions_by_id:
@@ -94,28 +165,37 @@ def prepare(eval_path: str, predictions_path: str, output_path: str) -> int:
         "prompt_template_version", "decoding_settings", "run_date", "reviewer",
         "prompt", "meaning_reference", "prediction", *SCORE_COLUMNS, "notes",
     ]
-    with Path(output_path).open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
-        writer.writeheader()
-        for identifier, item in eval_by_id.items():
-            pred = predictions_by_id.get(identifier, {})
-            writer.writerow({
-                "id": identifier,
-                "language": item.get("language", ""),
-                "task_type": item.get("task_type", ""),
-                "tags": "|".join(item.get("tags", [])),
-                "model": pred.get("model", ""),
-                "model_version": pred.get("model_version", ""),
-                "prompt_template_version": pred.get("prompt_template_version", ""),
-                "decoding_settings": json.dumps(pred.get("decoding_settings", {}), ensure_ascii=False, sort_keys=True),
-                "run_date": pred.get("run_date", ""),
-                "reviewer": "",
-                "prompt": item.get("prompt", ""),
-                "meaning_reference": item.get("target", ""),
-                "prediction": pred.get("prediction", ""),
-                **{column: "" for column in SCORE_COLUMNS},
-                "notes": "MISSING PREDICTION" if identifier in missing_predictions else "",
-            })
+    # Build the worksheet in memory, then replace the destination atomically. This
+    # prevents a partial CSV from being mistaken for a complete review artifact.
+    from io import StringIO
+
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=columns)
+    writer.writeheader()
+    for identifier, item in eval_by_id.items():
+        pred = predictions_by_id.get(identifier, {})
+        writer.writerow({
+            "id": identifier,
+            "language": item.get("language", ""),
+            "task_type": item.get("task_type", ""),
+            "tags": "|".join(item.get("tags", [])),
+            "model": pred.get("model", ""),
+            "model_version": pred.get("model_version", ""),
+            "prompt_template_version": pred.get("prompt_template_version", ""),
+            "decoding_settings": json.dumps(pred.get("decoding_settings", {}), ensure_ascii=False, sort_keys=True),
+            "run_date": pred.get("run_date", ""),
+            "reviewer": "",
+            "prompt": item.get("prompt", ""),
+            "meaning_reference": item.get("target", ""),
+            "prediction": pred.get("prediction", ""),
+            **{column: "" for column in SCORE_COLUMNS},
+            "notes": "MISSING PREDICTION" if identifier in missing_predictions else "",
+        })
+    try:
+        _atomic_write_text(output_path, buffer.getvalue(), newline="")
+    except OSError as exc:
+        print(f"could not write review worksheet {output_path!r}: {exc}", file=sys.stderr)
+        return 1
     print(f"Prepared {len(eval_by_id)} evaluation rows; {len(missing_predictions)} predictions missing.")
     print("Review answer keys and rubric before scoring; these synthetic draft keys are not independently validated.")
     return 0
@@ -135,24 +215,47 @@ def parse_score(value: str) -> float | None:
 
 
 def summarize(input_path: str, output_path: str | None) -> int:
+    if output_path and not _reject_output_collisions(output_path, (input_path,)):
+        return 1
     try:
         with Path(input_path).open(encoding="utf-8-sig", newline="") as handle:
-            rows = list(csv.DictReader(handle))
-    except OSError as exc:
-        print(str(exc), file=sys.stderr)
+            reader = csv.DictReader(handle, strict=True)
+            headers = reader.fieldnames
+            if not headers:
+                print("CSV header row is missing.", file=sys.stderr)
+                return 1
+            duplicate_headers = sorted({name for name in headers if headers.count(name) > 1})
+            if duplicate_headers:
+                print(f"duplicate CSV columns: {duplicate_headers}", file=sys.stderr)
+                return 1
+            required = {"id", "model", "language", "task_type", "tags", *SCORE_COLUMNS}
+            missing_columns = required - set(headers)
+            if missing_columns:
+                print(f"missing columns: {sorted(missing_columns)}", file=sys.stderr)
+                return 1
+            rows = list(reader)
+    except (OSError, csv.Error) as exc:
+        print(f"could not read evaluation CSV: {exc}", file=sys.stderr)
         return 1
     if not rows:
         print("No scored rows found.", file=sys.stderr)
-        return 1
-    required = {"id", "model", "language", "task_type", "tags", *SCORE_COLUMNS}
-    missing_columns = required - set(rows[0])
-    if missing_columns:
-        print(f"missing columns: {sorted(missing_columns)}", file=sys.stderr)
         return 1
 
     parsed: list[dict[str, Any]] = []
     errors: list[str] = []
     for row_number, row in enumerate(rows, 2):
+        if None in row:
+            errors.append(f"row {row_number}: too many CSV fields")
+            continue
+        missing_values = [name for name, value in row.items() if value is None]
+        if missing_values:
+            errors.append(f"row {row_number}: missing CSV fields for columns {missing_values}")
+            continue
+        identifier = row.get("id", "")
+        if not identifier.strip():
+            errors.append(f"row {row_number}: id must be non-empty")
+        if not row.get("model", "").strip():
+            errors.append(f"row {row_number}: model must be non-empty")
         values: dict[str, float | None] = {}
         for column in SCORE_COLUMNS:
             try:
@@ -160,8 +263,31 @@ def summarize(input_path: str, output_path: str | None) -> int:
             except ValueError as exc:
                 errors.append(f"row {row_number}, {column}: {exc}")
         parsed.append({**row, "_scores": values})
+    # A repeated item/run/reviewer row silently overweights that item in aggregates.
+    # Keep separate prompt/model/decoding runs and independent reviewers distinct.
+    seen_review_rows: set[tuple[str, ...]] = set()
+    for row_number, row in enumerate(parsed, 2):
+        identity = tuple(row.get(field, "").strip() for field in (
+            "id", "model", "model_version", "prompt_template_version",
+            "decoding_settings", "run_date", "reviewer",
+        ))
+        if identity in seen_review_rows:
+            errors.append(
+                f"row {row_number}: duplicate item/run/reviewer row for id {row.get('id', '')!r}; "
+                "do not count the same review twice"
+            )
+        seen_review_rows.add(identity)
     if errors:
         print("\n".join(errors), file=sys.stderr)
+        return 1
+
+    total_ratings = sum(
+        value is not None
+        for row in parsed
+        for value in row["_scores"].values()
+    )
+    if total_ratings == 0:
+        print("No scored ratings found; score at least one applicable axis before summarizing.", file=sys.stderr)
         return 1
 
     def group_summary(group: list[dict[str, Any]]) -> dict[str, Any]:
@@ -193,8 +319,14 @@ def summarize(input_path: str, output_path: str | None) -> int:
         model_label = row.get("model") or "(unspecified)"
         model_version = row.get("model_version", "").strip()
         run_date = row.get("run_date", "").strip()
+        prompt_template = row.get("prompt_template_version", "").strip()
+        decoding_settings = row.get("decoding_settings", "").strip()
         if model_version:
             model_label += f" ({model_version})"
+        if prompt_template:
+            model_label += f" [prompt={prompt_template}]"
+        if decoding_settings and decoding_settings != "{}":
+            model_label += f" [decoding={decoding_settings}]"
         if run_date:
             model_label += f" @ {run_date}"
         by_model[model_label].append(row)
@@ -228,6 +360,148 @@ def summarize(input_path: str, output_path: str | None) -> int:
             pct = stats["overall_normalized_percent"]
             report.append(f"| {name} | {stats['items']} | {stats['total_axis_ratings']} | {mean if mean is not None else '—'} | {f'{pct}%' if pct is not None else '—'} |")
 
+    # Report both item coverage and the exact overlap used for model comparisons.
+    # Reviewer duplicates are collapsed to item IDs for coverage purposes.
+    report.extend([
+        "", "## Item coverage", "",
+        "Coverage counts unique evaluation IDs, not reviewer rows. A model with fewer scored items may have a misleading aggregate; compare models on shared scored IDs.",
+        "", "| Model/run | Unique items | Items with any score | Scored-item coverage |",
+        "|---|---:|---:|---:|",
+    ])
+    scored_item_ids: dict[str, set[str]] = {}
+    for name, group in sorted(by_model.items()):
+        item_ids = {row["id"] for row in group}
+        scored_ids = {
+            row["id"] for row in group
+            if any(value is not None for value in row["_scores"].values())
+        }
+        scored_item_ids[name] = scored_ids
+        coverage = 100 * len(scored_ids) / len(item_ids) if item_ids else 0
+        report.append(f"| {name} | {len(item_ids)} | {len(scored_ids)} | {coverage:.1f}% |")
+
+    report.extend([
+        "", "## Pairwise scored-item overlap", "",
+        "Jaccard = shared scored item IDs divided by the union of scored item IDs. This is a coverage diagnostic, not a significance test.",
+        "", "| Model A | Model B | Shared scored items | Union of scored items | Jaccard overlap |",
+        "|---|---|---:|---:|---:|",
+    ])
+    model_names = sorted(scored_item_ids)
+    if len(model_names) < 2:
+        report.append("| — | — | — | — | Need at least two model/run groups |")
+    else:
+        for index, name_a in enumerate(model_names):
+            for name_b in model_names[index + 1:]:
+                ids_a, ids_b = scored_item_ids[name_a], scored_item_ids[name_b]
+                shared = ids_a & ids_b
+                union = ids_a | ids_b
+                jaccard = 100 * len(shared) / len(union) if union else 0
+                report.append(
+                    f"| {name_a} | {name_b} | {len(shared)} | {len(union)} | {jaccard:.1f}% |"
+                )
+
+    # Compare independent reviewers on the exact same item and model/run. N/A and
+    # blank scores are excluded; only axes with at least two numeric ratings count.
+    def run_key(row: dict[str, Any]) -> tuple[str, ...]:
+        return tuple(row.get(field, "").strip() for field in (
+            "model", "model_version", "prompt_template_version",
+            "decoding_settings", "run_date",
+        ))
+
+    run_labels: dict[tuple[str, ...], str] = {}
+    reviewer_scores: dict[tuple[tuple[str, ...], str, str], list[float]] = defaultdict(list)
+    for row in parsed:
+        key = run_key(row)
+        label = row.get("model") or "(unspecified)"
+        if row.get("model_version", "").strip():
+            label += f" ({row['model_version'].strip()})"
+        if row.get("prompt_template_version", "").strip():
+            label += f" [prompt={row['prompt_template_version'].strip()}]"
+        if row.get("decoding_settings", "").strip() and row["decoding_settings"].strip() != "{}":
+            label += f" [decoding={row['decoding_settings'].strip()}]"
+        if row.get("run_date", "").strip():
+            label += f" @ {row['run_date'].strip()}"
+        run_labels[key] = label
+        for axis in AXES:
+            score = row["_scores"][f"score_{axis}"]
+            if score is not None:
+                reviewer_scores[(key, row["id"], axis)].append(score)
+
+    disagreement_stats: dict[tuple[tuple[str, ...], str], dict[str, int]] = defaultdict(
+        lambda: {"comparable_items": 0, "disagreements": 0, "rating_pairs": 0}
+    )
+    for (key, _identifier, axis), values in reviewer_scores.items():
+        if len(values) < 2:
+            continue
+        stats = disagreement_stats[(key, axis)]
+        stats["comparable_items"] += 1
+        pair_count = len(values) * (len(values) - 1) // 2
+        stats["rating_pairs"] += pair_count
+        if len(set(values)) > 1:
+            stats["disagreements"] += 1
+
+    report.extend([
+        "", "## Inter-rater disagreement", "",
+        "For each model/run and axis, compares numeric scores from independent reviewers on the same item. Blank and N/A ratings are excluded. Disagreement is a review signal, not proof that either reviewer is wrong; adjudicate before treating scores as settled.",
+        "", "| Model/run | Axis | Items with 2+ ratings | Items with disagreement | Disagreement rate | Rating pairs |",
+        "|---|---|---:|---:|---:|---:|",
+    ])
+    if not disagreement_stats:
+        report.append("| — | — | 0 | 0 | — | 0 |")
+    else:
+        for (key, axis), stats in sorted(disagreement_stats.items(), key=lambda item: (run_labels[item[0][0]], item[0][1])):
+            rate = 100 * stats["disagreements"] / stats["comparable_items"] if stats["comparable_items"] else 0
+            report.append(
+                f"| {run_labels[key]} | {axis} | {stats['comparable_items']} | "
+                f"{stats['disagreements']} | {rate:.1f}% | {stats['rating_pairs']} |"
+            )
+
+    # Paired comparisons use only item/axis scores available for both model runs.
+    # When multiple reviewers score one item, average their numeric ratings first so
+    # reviewer count does not make that item count more than once in the comparison.
+    item_axis_scores: dict[str, dict[tuple[str, str], list[float]]] = defaultdict(lambda: defaultdict(list))
+    for name, group in by_model.items():
+        for row in group:
+            for axis in AXES:
+                score = row["_scores"][f"score_{axis}"]
+                if score is not None:
+                    item_axis_scores[name][(row["id"], axis)].append(score)
+
+    item_axis_means: dict[str, dict[tuple[str, str], float]] = {
+        name: {key: sum(values) / len(values) for key, values in scores.items()}
+        for name, scores in item_axis_scores.items()
+    }
+    report.extend([
+        "", "## Paired model comparison", "",
+        "For each pair of model/run groups, compares numeric scores only on the same item and axis scored for both. Multiple reviewers are averaged within an item before comparison. Delta is B minus A; positive favors B. This is descriptive, not a significance test.",
+        "", "| Model A | Model B | Axis | Shared scored items | Mean A | Mean B | Delta (B−A) | A wins | Ties | B wins |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    if len(model_names) < 2:
+        report.append("| — | — | — | 0 | — | — | — | — | — | Need at least two model/run groups |")
+    else:
+        for index, name_a in enumerate(model_names):
+            for name_b in model_names[index + 1:]:
+                scores_a, scores_b = item_axis_means[name_a], item_axis_means[name_b]
+                for axis in AXES:
+                    shared = sorted(
+                        identifier for identifier, shared_axis in scores_a
+                        if shared_axis == axis and (identifier, axis) in scores_b
+                    )
+                    if not shared:
+                        continue
+                    values_a = [scores_a[(identifier, axis)] for identifier in shared]
+                    values_b = [scores_b[(identifier, axis)] for identifier in shared]
+                    wins_a = sum(a > b for a, b in zip(values_a, values_b))
+                    ties = sum(a == b for a, b in zip(values_a, values_b))
+                    wins_b = sum(a < b for a, b in zip(values_a, values_b))
+                    mean_a = sum(values_a) / len(values_a)
+                    mean_b = sum(values_b) / len(values_b)
+                    report.append(
+                        f"| {name_a} | {name_b} | {axis} | {len(shared)} | "
+                        f"{mean_a:.3f} | {mean_b:.3f} | {mean_b - mean_a:+.3f} | "
+                        f"{wins_a} | {ties} | {wins_b} |"
+                    )
+
     report.extend(["", "## Per-axis results", "", "| Model | Axis | Scored | Mean (0–2) | Normalized score |", "|---|---|---:|---:|---:|"])
     for name, group in sorted(by_model.items()):
         stats = group_summary(group)
@@ -240,7 +514,11 @@ def summarize(input_path: str, output_path: str | None) -> int:
                    "- A high aggregate score can hide failures in a language, task family, or safety-critical constraint."])
     output = "\n".join(report) + "\n"
     if output_path:
-        Path(output_path).write_text(output, encoding="utf-8")
+        try:
+            _atomic_write_text(output_path, output)
+        except OSError as exc:
+            print(f"could not write evaluation report {output_path!r}: {exc}", file=sys.stderr)
+            return 1
     else:
         print(output)
     return 0
